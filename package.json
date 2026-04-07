@@ -1,10 +1,25 @@
 {
-  "name": "stackshift-workflow-skills",
+  "name": "@extragraj/stackshift-skills",
   "version": "0.1.0",
-  "private": true,
   "packageManager": "pnpm@9.0.0",
   "workspaces": [
-    "skills/*",
     "cli"
-  ]
+  ],
+  "bin": {
+    "stackshift": "./cli/bin/cli.mjs"
+  },
+  "files": [
+    "cli/dist",
+    "cli/bin",
+    "skills"
+  ],
+  "dependencies": {
+    "@clack/prompts": "^0.9.0",
+    "fs-extra": "^11.2.0",
+    "gray-matter": "^4.0.3"
+  },
+  "scripts": {
+    "build": "npm --prefix cli run build",
+    "prepack": "npm --prefix cli run build"
+  }
 }

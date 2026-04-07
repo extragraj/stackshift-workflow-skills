@@ -67,7 +67,7 @@ export async function runPrompts(
       initialValue: 'none',
     });
     assertNotCancelled(seedChoice);
-    seed = seedChoice;
+    seed = seedChoice as SeedChoice;
   }
 
   const scopeChoice = await select<ScopeChoice>({
@@ -82,9 +82,9 @@ export async function runPrompts(
   assertNotCancelled(scopeChoice);
 
   return {
-    protocolTier: tierChoice,
+    protocolTier: tierChoice as ProtocolTier,
     customProtocols,
     seed,
-    scope: scopeChoice,
+    scope: scopeChoice as ScopeChoice,
   };
 }
