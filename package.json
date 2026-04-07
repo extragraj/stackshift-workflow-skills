@@ -6,12 +6,13 @@
     "cli"
   ],
   "bin": {
-    "stackshift": "./cli/bin/cli.mjs"
+    "stackshift": "./bin/cli.mjs"
   },
   "files": [
+    "bin",
     "cli/dist",
-    "cli/bin",
-    "skills"
+    "skills",
+    "skill.version"
   ],
   "dependencies": {
     "@clack/prompts": "^0.9.0",

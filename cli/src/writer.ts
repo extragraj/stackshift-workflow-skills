@@ -1,5 +1,6 @@
 import { writeFileSync } from 'fs';
-import { copySync, ensureDirSync, readJsonSync, writeJsonSync, pathExistsSync, readFileSync } from 'fs-extra';
+import fsExtra from 'fs-extra';
+const { copySync, ensureDirSync, readJsonSync, writeJsonSync, pathExistsSync, readFileSync } = fsExtra;
 import { join, resolve, basename } from 'path';
 import { homedir } from 'os';
 import { fileURLToPath } from 'url';
