@@ -1,57 +1,78 @@
 # Bootstrap — Install Modes
 
-Authoritative definitions of the five install modes offered during bootstrap. Each mode maps to a tier-based filter over `protocols/_registry.json` and `seeds/_registry.json`.
+Authoritative definitions of the five install modes offered during bootstrap. Each mode determines which protocols are materialized and whether project infrastructure is created.
 
 ---
 
 ## None
 
-**Intent:** You want a clean slate. You will write your own protocols and seeds, or you want to evaluate the skill without committing to any conventions yet.
+**Intent:** Evaluate the skill without committing to conventions yet, or use skill defaults exclusively.
 
-**Result:**
-- No files copied to `/docs/protocol/` or `/docs/seed/`.
-- `.stackshift/installed.json` records `mode: "none"` with empty selection arrays.
-- Workflow still functions — the skill falls back to the bundled protocols and seeds in the skill folder at lookup time.
+**Materialized:**
+- Nothing copied to `/docs/`
+- No project infrastructure created
+- `.stackshift/installed.json` records `mode: "none"` with empty protocol list
 
-**Good for:** Experimental projects, pilots, teams that already have their own conventions documented elsewhere.
+**Behavior:**
+- Protocols and seeds load from skill only
+- Custom protocols not possible (no project registry)
+- Workflow functions normally using skill defaults
+
+**Good for:** Experimental projects, pilots, teams evaluating the skill before adoption.
 
 ---
 
 ## Required
 
-**Intent:** You want only the protocols the workflow strictly depends on — the ones whose violation causes build errors, runtime errors, or schema load failures. Everything else stays in the skill as a fallback.
+**Intent:** Install only protocols the workflow strictly depends on — those whose violation causes build errors, runtime errors, or schema load failures.
 
-**Result:**
-- Every protocol where `tier === "required"` is copied.
-- Every seed where `tier === "required"` is copied (currently none).
-- Recommended and optional items are skipped.
+**Materialized:**
+- Required protocols → `/docs/protocol/`
+- Project protocol registry → `/docs/protocol/_registry.json` (empty)
+- Protocol template → `/docs/protocol/_template/`
+- References directory → `/docs/references/` (empty)
 
-**Good for:** Lean projects, teams that want to customize only the load-bearing conventions and leave UX defaults to the skill.
+**Not materialized:**
+- Seeds
+- Recommended protocols (use skill defaults)
+- Optional protocols (use skill defaults)
+
+**Good for:** Lean projects, teams customizing only load-bearing conventions while using skill defaults for UX.
 
 ---
 
-## Recommended (default)
+## Recommended (Default)
 
-**Intent:** You want the sensible baseline — everything required, plus the quality-of-UX conventions we've found useful across most StackShift projects — without the heavyweight optional systems.
+**Intent:** Install the sensible baseline — everything required plus quality-of-UX conventions used across most StackShift projects.
 
-**Result:**
-- Every protocol where `tier === "required"` OR `tier === "recommended"` is copied.
-- Same for seeds.
-- Optional items are skipped.
+**Materialized:**
+- Required + recommended protocols → `/docs/protocol/`
+- Project protocol registry → `/docs/protocol/_registry.json` (empty)
+- Protocol template → `/docs/protocol/_template/`
+- References directory → `/docs/references/` (empty)
 
-**Good for:** New projects, most teams, the "just get me going" path.
+**Not materialized:**
+- Seeds
+- Optional protocols (use skill defaults)
+
+**Good for:** New projects, most teams, the "just get started" path.
 
 ---
 
 ## All
 
-**Intent:** You want every protocol and seed the skill ships with, including optional systems that bring their own architecture and dependencies. Useful for auditing the full catalog.
+**Intent:** Install every protocol the skill ships with, including optional systems that bring their own architecture and dependencies.
 
-**Result:**
-- Every item in both registries is copied, regardless of tier.
-- `.stackshift/installed.json` records `mode: "all"`.
+**Materialized:**
+- All protocols (required + recommended + optional) → `/docs/protocol/`
+- Project protocol registry → `/docs/protocol/_registry.json` (empty)
+- Protocol template → `/docs/protocol/_template/`
+- References directory → `/docs/references/` (empty)
 
-**Warning:** Optional protocols may require dependencies you have not installed yet (shadcn, react-hook-form, context providers, etc.). Installing them into `/docs/` does not install the runtime dependencies — you must do that separately. See each optional protocol's README.
+**Not materialized:**
+- Seeds
+
+**Warning:** Optional protocols may require dependencies not yet installed (shadcn, react-hook-form, context providers, etc.). Installing protocols to `/docs/` does not install runtime dependencies — install those separately. See each optional protocol's documentation.
 
 **Good for:** Teams auditing what StackShift offers, internal documentation projects, reference setups.
 
@@ -59,41 +80,61 @@ Authoritative definitions of the five install modes offered during bootstrap. Ea
 
 ## Interactive
 
-**Intent:** You want exact control over which items land in `/docs/`. Useful when adopting the skill into an existing codebase that already has some conventions documented, or when picking specific optional systems.
+**Intent:** Exact control over which protocols land in `/docs/`. Useful for brownfield adoption or selective optional system adoption.
 
 **Result:**
-- A single multi-select prompt for protocols. Each item renders as `[tier] title — summary`.
-- A single multi-select prompt for seeds.
-- Required items are **pre-checked**; unchecking a required item produces a warning (but is allowed).
-- Recommended items are pre-checked.
-- Optional items are unchecked.
-- Only the checked items are copied.
+- Multi-select prompt for protocols renders as `[tier] title — summary`
+- Required items pre-checked with warning if unchecked (allowed but not recommended)
+- Recommended items pre-checked
+- Optional items unchecked
+- Only checked items copied
 
-**Good for:** Brownfield adoption, teams with strong existing opinions, selective adoption of optional systems.
+**Always materialized:**
+- Selected protocols → `/docs/protocol/`
+- Project protocol registry → `/docs/protocol/_registry.json` (empty)
+- Protocol template → `/docs/protocol/_template/`
+- References directory → `/docs/references/` (empty)
 
----
+**Never materialized:**
+- Seeds
 
-## Switching modes later
-
-`.stackshift/installed.json` tracks the current mode. To change it:
-
-1. Ask the AI: "re-bootstrap StackShift skill with mode: <n>".
-2. The skill diffs the current installation against the new selection.
-3. Missing files get copied. Existing files are NEVER overwritten — the skill asks per file.
-4. The marker is updated to the new mode.
-
-Mode changes only add files — they never remove. To remove a protocol from `/docs/`, delete it manually; the skill will fall back to its bundled copy at lookup time.
+**Good for:** Brownfield adoption, teams with strong existing conventions, selective optional system adoption.
 
 ---
 
-## What happens at lookup time
+## Protocol Discovery After Bootstrap
 
-When the workflow needs a protocol or seed, it looks in this order:
+When the workflow needs a protocol, discovery happens via **merged registries**:
 
-1. `/docs/protocol/<id>.md` or `/docs/protocol/<id>/` in the project
-2. `protocols/<id>.md` or `protocols/<id>/` in the skill folder
+1. **Read project registry:** `/docs/protocol/_registry.json` (if exists)
+2. **Read skill registry:** `protocols/_registry.json`
+3. **Merge:** Project protocols take precedence over skill protocols with same ID
+4. **Load on-demand:** When protocol needed, load from:
+   - `/docs/protocol/<id>.md` or `/docs/protocol/<id>/` (project)
+   - `protocols/<id>.md` or `protocols/<id>/` (skill fallback)
 
-**Project docs always win.** This means:
-- Mode `none` still gets working defaults (from the skill folder).
-- Editing a copied file in `/docs/` immediately overrides the skill's default for that project.
-- Deleting a copied file falls back to the skill default — no re-bootstrap needed.
+**Key behaviors:**
+- Mode `none` still gets working defaults (from skill protocols)
+- Editing a protocol in `/docs/` immediately overrides skill default
+- Deleting a protocol from `/docs/` falls back to skill default
+- **Adding custom protocols to `/docs/protocol/_registry.json` makes them discoverable**
+
+---
+
+## Seeds (Not Materialized)
+
+Seeds follow standard strategies and load from skill when seeding is needed.
+
+---
+
+## No Re-Bootstrap Needed
+
+**Before (old architecture):** Adding new protocols required re-bootstrapping to materialize them.
+
+**Now (registry-based):** Custom protocols via registry:
+- Add protocol file to `/docs/protocol/`
+- Register in `/docs/protocol/_registry.json`
+- Protocol discovered on next workflow invocation
+- No re-bootstrap cycle needed
+
+Project infrastructure files (`_registry.json`, `_template/`, `references/`) persist across skill updates and enable continuous protocol development.

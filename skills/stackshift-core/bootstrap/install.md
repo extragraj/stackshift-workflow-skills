@@ -3,7 +3,7 @@
 > **Who reads this:** the AI, on first invocation of the StackShift skill in a new project.
 > **Trigger:** `.stackshift/installed.json` does not exist in the project root.
 
-The goal of bootstrap is to materialize the selected protocol and seed reference docs into the project's `/docs/` folder so the team can customize them, then drop a marker file recording what was installed.
+The goal of bootstrap is to materialize selected protocols, create project infrastructure (_registry.json, _template/, references/), and drop a marker file recording what was installed.
 
 ---
 
@@ -16,16 +16,17 @@ Check for `.stackshift/installed.json` in the project root.
 
 ---
 
-## Step 2 — Read the registries
+## Step 2 — Read the protocol registry
 
-Load the two manifests from the skill folder:
+Load the protocol manifest from the skill folder:
 
 - `protocols/_registry.json`
-- `seeds/_registry.json`
 
 Each entry carries a `tier` (`required` / `recommended` / `optional`), a `title`, a `summary`, and either a `file` (single markdown) or a `dir` (directory to copy recursively).
 
-**Do not load the actual protocol/seed content yet.** The registries are intentionally small so this step stays cheap.
+**Do not load the actual protocol content yet.** The registry is intentionally small so this step stays cheap.
+
+**Note:** `seeds/_registry.json` exists in the skill but seeds are not materialized to projects.
 
 ---
 
@@ -49,21 +50,23 @@ Default recommendation: **Recommended**.
 
 ## Step 4 — Resolve the selection
 
-Based on the chosen mode, build two lists — `selectedProtocols` and `selectedSeeds`:
+Based on the chosen mode, build the `selectedProtocols` list:
 
-| Mode | Protocols selected | Seeds selected |
-|---|---|---|
-| None | `[]` | `[]` |
-| Required | `tier === "required"` | `tier === "required"` |
-| Recommended | `tier === "required" OR tier === "recommended"` | `tier === "required" OR tier === "recommended"` |
-| All | every entry | every entry |
-| Interactive | user's checked items from two multi-select prompts | same |
+| Mode | Protocols selected |
+|---|---|
+| None | `[]` |
+| Required | `tier === "required"` |
+| Recommended | `tier === "required" OR tier === "recommended"` |
+| All | every entry |
+| Interactive | user's checked items from prompt |
 
-For **Interactive**, show one prompt per registry. Each item renders as `[tier] title — summary`. Required items are pre-checked AND the user is warned (but not blocked) if they uncheck one: "This is a required protocol — unchecking means the workflow will fall back to the skill-bundled copy instead of a project copy you can customize. Continue?".
+For **Interactive**, show a protocol selection prompt. Each item renders as `[tier] title — summary`. Required items are pre-checked AND the user is warned (but not blocked) if they uncheck one: "This is a required protocol — unchecking means the workflow will fall back to the skill-bundled copy instead of a project copy you can customize. Continue?".
 
 ---
 
-## Step 5 — Materialize the selected files
+## Step 5 — Materialize protocols and project infrastructure
+
+### A. Materialize Selected Protocols
 
 For each selected protocol:
 
@@ -79,19 +82,70 @@ if entry.dir is set:
   action:      copy directory recursively
 ```
 
-Seeds use the same pattern but under `<project>/docs/seed/`.
+**Copy verbatim.** Do not rewrite, summarize, or reformat. The project copies are meant to be customized by the team — preserving the original as the starting point is important.
 
-Create the destination directories if they do not exist:
+**Conflict rule:** If a destination already exists (file or directory), do NOT overwrite silently. Ask per-entry: *skip*, *overwrite*, or *write alongside as `<n>.new.md` / `<dir>.new/`*.
+
+### B. Create Project Protocol Registry
+
+Create `<project>/docs/protocol/_registry.json`:
+
+```json
+{
+  "protocols": [],
+  "note": "Add custom project protocols here. They will be discovered alongside skill protocols."
+}
+```
+
+This empty registry allows teams to add custom protocols that are discovered alongside skill protocols.
+
+### C. Copy Protocol Template
+
+Copy `<skill>/protocols/_template/` → `<project>/docs/protocol/_template/` recursively.
+
+This provides a starting point for creating complex multi-file protocols.
+
+### D. Create References Directory
+
+Create `<project>/docs/references/` directory (empty initially).
+
+Add a README file: `<project>/docs/references/README.md`:
+
+```markdown
+# Custom References
+
+Add custom reference lookups here for project-specific protocols.
+
+These augment the skill's standard references without modifying them.
+
+## Example
+
+Create files like:
+- `custom-lookups.md` - Custom data tables
+- `project-types.md` - Project-specific type definitions
+- `field-patterns.md` - Project field patterns
+```
+
+### E. Do NOT Materialize Seeds
+
+Seeds follow standard strategies and load from skill when needed.
+
+### F. Directory Structure
+
+After materialization, the project should have:
 
 ```
 /docs/
 ├── protocol/
-└── seed/
+│   ├── _registry.json          # Project protocol registry (empty)
+│   ├── _template/              # Complex protocol template
+│   └── [materialized protocols] # Selected from bootstrap
+│
+└── references/                 # Custom reference lookups (empty)
+    └── README.md
 ```
 
-**Copy verbatim.** Do not rewrite, summarize, or reformat. The project copies are meant to be customized by the team — preserving the original as the starting point is important.
-
-**Conflict rule:** If a destination already exists (file or directory), do NOT overwrite silently. Ask per-entry: *skip*, *overwrite*, or *write alongside as `<n>.new.md` / `<dir>.new/`*.
+Note: No `/docs/seed/` directory is created.
 
 ---
 
@@ -108,16 +162,16 @@ Create `<project>/.stackshift/installed.json`:
     { "id": "factory-function-pattern", "tier": "required", "file": "factory-function-pattern.md" },
     { "id": "sub-field-visibility", "tier": "required", "file": "sub-field-visibility.md" },
     { "id": "field-reuse-first", "tier": "recommended", "file": "field-reuse-first.md" }
-  ],
-  "seeds": []
+  ]
 }
 ```
+
+**Note:** Seeds field is not included because seeds are not materialized to projects.
 
 This file is the source of truth for what has been installed. Future invocations read it to:
 
 - Skip bootstrap entirely (it exists → we're done).
-- Detect registry additions that could be offered to the user with a non-blocking "new protocols available" notice.
-- Support a future `re-bootstrap` command.
+- Detect registry additions that could be offered to the user with a non-blocking "new protocols available" notice (optional future feature).
 
 ---
 
@@ -127,20 +181,25 @@ Print a summary:
 
 ```
 Bootstrapped StackShift skill (mode: recommended)
-  /docs/protocol/  ← 9 items (4 required, 5 recommended)
-  /docs/seed/      ← 0 items
+  /docs/protocol/           ← 9 protocols (4 required, 5 recommended)
+  /docs/protocol/_registry.json  ← Project protocol registry (empty)
+  /docs/protocol/_template/ ← Complex protocol template
+  /docs/references/         ← Custom reference lookups (empty)
   .stackshift/installed.json written
 
-Edit files under /docs/protocol/ and /docs/seed/ freely. Your edits
-take precedence over the skill's defaults at lookup time.
+Edit protocols under /docs/protocol/ freely. Your edits take precedence over
+the skill's defaults at lookup time.
+
+Add custom protocols to /docs/protocol/_registry.json for discovery.
 ```
 
 Return to the workflow step the user originally invoked. Do not treat bootstrap as the answer to their actual request.
 
 ---
 
-## Idempotency and re-runs
+## Idempotency and bootstrap behavior
 
-- Running bootstrap when `.stackshift/installed.json` exists is a no-op unless the user explicitly asks to re-bootstrap.
-- On explicit re-bootstrap, read the existing marker, offer to install **only new items** added to the registries since the last install, and never silently overwrite customized files.
-- Changing install mode is a valid re-bootstrap reason. The skill diffs current → new selection and asks per-item for additions; it never removes installed files.
+- Running bootstrap when `.stackshift/installed.json` exists is a no-op.
+- Bootstrap only runs once per project.
+- New protocols can be added directly to `/docs/protocol/_registry.json` for discovery.
+- If project infrastructure files (_registry.json, _template/, references/) are missing, they can be re-created manually by copying from skill or running bootstrap again after deleting the marker file.

@@ -1,11 +1,20 @@
 # Step 1 — Schema Fields
 
-> **Required reading for this step** (loaded on demand):
-> - `protocols/factory-function-pattern.md` — wrong shape breaks `hideInVariants` at runtime
-> - `protocols/sub-field-visibility.md` — duplicate field names crash schema load
+> **Protocol Discovery for This Step:**
 >
-> **Recommended** (consult if present in `/docs/protocol/`, otherwise skip inline):
-> - `field-reuse-first` · `hide-if-variant` · `preview-conventions` · `array-layout`
+> Load protocols from merged registry (project + skill) where `appliesTo` includes Step 1:
+> 1. Read `/docs/protocol/_registry.json` (if exists)
+> 2. Read `protocols/_registry.json` from skill
+> 3. Merge registries (project protocols override skill protocols with same ID)
+> 4. Filter protocols: `tier === 'required'` OR `tier === 'recommended'`
+> 5. Load each protocol from `/docs/protocol/<id>` (project) OR `protocols/<id>` (skill)
+>
+> **Required protocols** (load and enforce):
+> - Factory Function Pattern — wrong shape breaks `hideInVariants` at runtime
+> - Sub-Field Visibility — duplicate field names crash schema load
+>
+> **Recommended protocols** (load if present, but do not block):
+> - Field Reuse First · Hide If Variant · Preview Conventions · Array Layout
 
 ---
 

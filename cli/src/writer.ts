@@ -5,7 +5,7 @@ import { join, resolve, basename } from 'path';
 import { homedir } from 'os';
 import { fileURLToPath } from 'url';
 import matter from 'gray-matter';
-import type { InstallChoices, ProtocolTier } from './prompts.js';
+import type { InstallChoices, ProtocolTier, Platform } from './prompts.js';
 import type { ProtocolEntry, SkillEntry } from './registry.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
@@ -25,14 +25,16 @@ interface LockFile {
   skills: LockEntry[];
 }
 
-function resolveTargetDir(scope: 'project' | 'global'): string {
-  if (scope === 'global') return join(homedir(), '.agents', 'skills');
-  return join(process.cwd(), '.agents', 'skills');
+function resolveTargetDir(scope: 'project' | 'global', platform: Platform): string {
+  const baseDir = platform === 'agents' ? '.agents' : '.claude';
+  if (scope === 'global') return join(homedir(), baseDir, 'skills');
+  return join(process.cwd(), baseDir, 'skills');
 }
 
-function resolveLockPath(scope: 'project' | 'global'): string {
-  if (scope === 'global') return join(homedir(), '.agents', LOCK_FILE);
-  return join(process.cwd(), '.agents', LOCK_FILE);
+function resolveLockPath(scope: 'project' | 'global', platform: Platform): string {
+  const baseDir = platform === 'agents' ? '.agents' : '.claude';
+  if (scope === 'global') return join(homedir(), baseDir, LOCK_FILE);
+  return join(process.cwd(), baseDir, LOCK_FILE);
 }
 
 function appendLock(lockPath: string, entry: LockEntry): void {
@@ -40,7 +42,13 @@ function appendLock(lockPath: string, entry: LockEntry): void {
   if (pathExistsSync(lockPath)) {
     lock = readJsonSync(lockPath) as LockFile;
   }
+
+  // INTENTIONAL: Remove previous entry with same name to prevent duplicates.
+  // For protocol bundles, this means only one tier can be active at a time.
+  // The installed tier (required/recommended/full) already includes all lower tiers,
+  // so having multiple bundles would be redundant.
   lock.skills = lock.skills.filter((s) => s.name !== entry.name);
+
   lock.skills.push(entry);
   writeJsonSync(lockPath, lock, { spaces: 2 });
 }
@@ -139,53 +147,65 @@ function writeStackshiftMarker(
       installedAt: new Date().toISOString(),
       mode: modeMap[choices.protocolTier],
       protocols: protocols.map(({ id, tier, file }) => ({ id, tier, file })),
-      seeds: choices.seed === 'none' ? [] : [choices.seed],
+      // Seeds removed - not materialized to project (remain in skill only as standard strategies)
     },
     { spaces: 2 },
   );
+}
+
+interface InstallResult {
+  platform: Platform;
+  skills: string[];
 }
 
 export function writeSelection(
   choices: InstallChoices,
   skills: SkillEntry[],
   allProtocols: ProtocolEntry[],
-): string[] {
-  const targetDir = resolveTargetDir(choices.scope);
-  const lockPath = resolveLockPath(choices.scope);
-  ensureDirSync(targetDir);
-
-  const installed: string[] = [];
+): InstallResult[] {
+  const results: InstallResult[] = [];
   const now = new Date().toISOString();
 
-  // Always install core
-  const coreSkill = skills.find((s) => s.type === 'core');
-  if (coreSkill) {
-    copySkillFolder(coreSkill.folderPath, targetDir);
-    appendLock(lockPath, { name: coreSkill.name, installedAt: now, scope: choices.scope });
-    installed.push(coreSkill.name);
-  }
+  // Install to each selected platform
+  for (const platform of choices.platforms) {
+    const targetDir = resolveTargetDir(choices.scope, platform);
+    const lockPath = resolveLockPath(choices.scope, platform);
+    ensureDirSync(targetDir);
 
-  // Install protocol bundle
-  if (choices.protocolTier === 'custom') {
-    buildCustomProtocolSkill(choices.customProtocols, allProtocols, targetDir);
-    appendLock(lockPath, {
-      name: 'stackshift-protocols-custom',
-      installedAt: now,
-      scope: choices.scope,
-    });
-    installed.push('stackshift-protocols-custom');
-  } else {
-    const bundleName = resolveProtocolSkillName(choices.protocolTier);
-    const bundleSkill = skills.find((s) => s.name === bundleName);
-    if (bundleSkill) {
-      copySkillFolder(bundleSkill.folderPath, targetDir);
-      appendLock(lockPath, { name: bundleName, installedAt: now, scope: choices.scope });
-      installed.push(bundleName);
+    const installed: string[] = [];
+
+    // Always install core
+    const coreSkill = skills.find((s) => s.type === 'core');
+    if (coreSkill) {
+      copySkillFolder(coreSkill.folderPath, targetDir);
+      appendLock(lockPath, { name: coreSkill.name, installedAt: now, scope: choices.scope });
+      installed.push(coreSkill.name);
     }
+
+    // Install protocol bundle
+    if (choices.protocolTier === 'custom') {
+      buildCustomProtocolSkill(choices.customProtocols, allProtocols, targetDir);
+      appendLock(lockPath, {
+        name: 'stackshift-protocols-custom',
+        installedAt: now,
+        scope: choices.scope,
+      });
+      installed.push('stackshift-protocols-custom');
+    } else {
+      const bundleName = resolveProtocolSkillName(choices.protocolTier);
+      const bundleSkill = skills.find((s) => s.name === bundleName);
+      if (bundleSkill) {
+        copySkillFolder(bundleSkill.folderPath, targetDir);
+        appendLock(lockPath, { name: bundleName, installedAt: now, scope: choices.scope });
+        installed.push(bundleName);
+      }
+    }
+
+    results.push({ platform, skills: installed });
   }
 
   // Write .stackshift/installed.json so bootstrap skips re-prompting (project scope only)
   writeStackshiftMarker(choices, allProtocols);
 
-  return installed;
+  return results;
 }

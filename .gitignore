@@ -1,3 +1,15 @@
+# Dependencies
 node_modules/
 cli/node_modules/
+
+# Build output
 cli/dist/
+
+# CLI Lock files
+cli/pnpm-lock.yaml
+cli/package-lock.json
+cli/yarn.lock
+
+# OS files
+.DS_Store
+*.log
