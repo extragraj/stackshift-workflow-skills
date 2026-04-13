@@ -174,7 +174,7 @@ After installing via either Option A or Option B:
 | **Multi-tier prevention** | No (requires repair after) | Yes (prevents during install) |
 | **Automation support** | Limited | Full (with `--no-interactive` flag) |
 
-**Note:** The `ui-forge` companion skill must be installed independently regardless of which installation option is chosen.
+**Note:** The `ui-forge` companion skill must be installed independently; StackShift bootstrap will detect and integrate it automatically when present.
 
 ---
 

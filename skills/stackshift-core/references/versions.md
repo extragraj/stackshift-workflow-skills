@@ -20,6 +20,16 @@
 
 ---
 
+## Companion Skill: ui-forge
+
+| StackShift version | ui-forge version range | Notes |
+|---|---|---|
+| 0.1.5 — 0.1.x | ≥0.1.1, <0.2.0 | Requires `CONVERT_VARIANT` signal (ui-forge ≥0.1.2) |
+
+**Runtime check:** During bootstrap (Step 6e of `bootstrap/install.md`), StackShift reads `ui-forge`'s `skill.version` and compares against this table. A mismatch emits a non-fatal warning before the first Step 4 handoff.
+
+---
+
 ## Allowed and required
 
 - ✅ `getStaticProps` for data fetching

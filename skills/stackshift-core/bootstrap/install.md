@@ -149,7 +149,142 @@ Note: No `/docs/seed/` directory is created.
 
 ---
 
-## Step 6 — Write the install marker
+## Step 6 — Bridge `designStandards` for `ui-forge`
+
+After protocols are materialized, bridge the `variant-router` protocol (and any component-rendering protocols) into the `designStandards` field that `ui-forge` reads from `design/design-arch.json`.
+
+### 6a — Build the `designStandards` payload
+
+Scan the materialized protocols for component-rendering relevance. At minimum, include the `variant-router` protocol:
+
+```json
+{
+  "designStandards": {
+    "stackshiftVariantRouter": "./docs/protocol/variant-router.md"
+  }
+}
+```
+
+If additional component-rendering protocols exist in `/docs/protocol/_registry.json` (project) or `protocols/_registry.json` (skill), add them:
+
+```json
+{
+  "designStandards": {
+    "stackshiftVariantRouter": "./docs/protocol/variant-router.md",
+    "stackshiftComponentStandard": "./docs/protocol/<any-component-rendering-protocol>.md"
+  }
+}
+```
+
+### 6b — Apply the payload
+
+Check for `design/design-arch.json` at the project root:
+
+- **If it exists:** Read the file, merge the `designStandards` object into it (preserve all existing keys), and write it back.
+- **If it does not exist:** Record the intended `designStandards` payload in `.stackshift/installed.json` under a `pendingDesignArchBridge` key. This payload will be applied when `ui-forge`'s `scan.js` creates the file (see Step 6c).
+
+```json
+{
+  "pendingDesignArchBridge": {
+    "designStandards": {
+      "stackshiftVariantRouter": "./docs/protocol/variant-router.md"
+    }
+  }
+}
+```
+
+### 6c — Detect and integrate `ui-forge`
+
+Resolve the `ui-forge` skill directory using this lookup order (first match wins):
+
+1. Environment variable `UI_FORGE_SKILL_DIR` if set
+2. `.claude/skills/ui-forge/` (project-scope Claude Code install)
+3. `.agents/skills/ui-forge/` (project-scope agents install)
+4. `~/.claude/skills/ui-forge/` (global Claude Code install)
+5. `~/.agents/skills/ui-forge/` (global agents install)
+
+**If `ui-forge` is installed and `design/design-arch.json` is absent:**
+
+Prompt the user:
+
+```
+? ui-forge is installed but design/design-arch.json is missing.
+  Run ui-forge scan now? (Y/n)
+```
+
+On confirmation:
+
+1. Execute `node ${UI_FORGE_SKILL_DIR}/scripts/scan.js`
+2. Apply the `pendingDesignArchBridge` payload from Step 6b to the newly-created `design/design-arch.json`
+3. Remove the `pendingDesignArchBridge` key from `.stackshift/installed.json`
+
+On decline or if `ui-forge` is not installed:
+
+- Record the integration state in `.stackshift/installed.json` (see Step 6d)
+- The `pendingDesignArchBridge` payload remains for future application
+
+### 6d — Record `ui-forge` integration state
+
+Add to `.stackshift/installed.json`:
+
+**If `ui-forge` was found and scan completed:**
+
+```json
+{
+  "uiForgeIntegration": {
+    "installed": true,
+    "scanCompleted": true,
+    "scanTimestamp": "2026-04-14T12:34:56Z",
+    "uiForgeVersion": "<read from ui-forge skill.version>",
+    "skillDir": "<resolved path>"
+  }
+}
+```
+
+**If `ui-forge` was found but scan was declined:**
+
+```json
+{
+  "uiForgeIntegration": {
+    "installed": true,
+    "scanCompleted": false
+  }
+}
+```
+
+**If `ui-forge` was not found:**
+
+```json
+{
+  "uiForgeIntegration": {
+    "installed": false
+  }
+}
+```
+
+This lets later StackShift invocations detect stale scans (e.g. after `ui-forge` is upgraded) and re-run.
+
+### 6e — Version compatibility check
+
+After detecting `ui-forge`, read its `skill.version` file and compare against the declared compatibility range in `references/versions.md`.
+
+**If mismatched:** Emit a non-fatal warning:
+
+```
+⚠️ ui-forge version mismatch
+
+  Installed: 0.2.1
+  Compatible range: ≥0.1.1, <0.2.0
+
+  See references/versions.md for the compatibility table.
+  Step 4 handoff may produce unexpected results.
+```
+
+**If compatible or not installed:** No action needed.
+
+---
+
+## Step 7 — Write the install marker
 
 Create `<project>/.stackshift/installed.json`:
 
@@ -175,7 +310,7 @@ This file is the source of truth for what has been installed. Future invocations
 
 ---
 
-## Step 7 — Report and return
+## Step 8 — Report and return
 
 Print a summary:
 
@@ -186,6 +321,9 @@ Bootstrapped StackShift skill (mode: recommended)
   /docs/protocol/_template/ ← Complex protocol template
   /docs/references/         ← Custom reference lookups (empty)
   .stackshift/installed.json written
+
+ui-forge integration: [detected / not found]
+  design/design-arch.json:  [bridged / pending / N/A]
 
 Edit protocols under /docs/protocol/ freely. Your edits take precedence over
 the skill's defaults at lookup time.

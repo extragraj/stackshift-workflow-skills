@@ -212,7 +212,13 @@ Add custom reference lookups in `/docs/references/<name>.md` for project-specifi
 
 ---
 
-## 5. Extending the Skill (Skill Maintainers)
+## 5. Companion Skill Integration
+
+StackShift delegates component body generation to `ui-forge` at Step 4 (see `workflow/4-variants.md`). The two skills share protocol awareness through the `designStandards` field in `design/design-arch.json`: during bootstrap, StackShift writes pointers to `variant-router` (and any future component-rendering protocols) into this field so that `ui-forge` loads them into its generation context. This is the sole bridge between StackShift's `/docs/protocol/` registry and `ui-forge`'s `design-arch.json`-based standards system.
+
+---
+
+## 6. Extending the Skill (Skill Maintainers)
 
 For skill maintainers adding protocols to the core skill:
 
@@ -222,7 +228,7 @@ For skill maintainers adding protocols to the core skill:
 
 ---
 
-## 6. Hard rules (always apply)
+## 7. Hard rules (always apply)
 
 - Never reorder steps 1–5.
 - Never use Sanity v4+ APIs (`defineConfig`, etc.). Project is v3.17.
