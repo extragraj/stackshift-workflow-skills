@@ -1,10 +1,19 @@
 # Step 2 — Section Schema
 
-> **Required reading for this step** (loaded on demand):
-> - `protocols/one-time-custom-schema-setup.md` — run once per project, or custom sections never appear
+> **Protocol Discovery for This Step:**
 >
-> **Recommended**:
-> - `section-directory-layout` — covers `initialValue/` and `images/` directories
+> Load protocols from merged registry (project + skill) where `appliesTo` includes Step 2:
+> 1. Read `/docs/protocol/_registry.json` (if exists)
+> 2. Read `protocols/_registry.json` from skill
+> 3. Merge registries (project protocols override skill protocols with same ID)
+> 4. Filter protocols: `tier === 'required'` OR `tier === 'recommended'`
+> 5. Load each protocol from `/docs/protocol/<id>` (project) OR `protocols/<id>` (skill)
+>
+> **Required protocols** (load and enforce):
+> - One-Time Custom Schema Setup — run once per project, or custom sections never appear
+>
+> **Recommended protocols** (load if present, but do not block):
+> - Section Directory Layout — covers `initialValue/` and `images/` directories
 
 ---
 

@@ -1,5 +1,17 @@
 # Step 4 — Component Variant
 
+> **Protocol Discovery for This Step:**
+>
+> Load protocols from merged registry (project + skill) where `appliesTo` includes Step 4:
+> 1. Read `/docs/protocol/_registry.json` (if exists)
+> 2. Read `protocols/_registry.json` from skill
+> 3. Merge registries (project protocols override skill protocols with same ID)
+> 4. Filter protocols: `tier === 'required'`
+> 5. Load each protocol from `/docs/protocol/<id>` (project) OR `protocols/<id>` (skill)
+>
+> **Required protocols** (load and enforce):
+> - Variant Router — `index.tsx` rules: exported props interface, `null` fallback, `?? undefined` extraction
+
 > This is the ONLY step that delegates to `ui-forge`.
 > StackShift owns the wiring (index.tsx, props interface, dynamic import).
 > `ui-forge` owns the variant body (JSX + component library usage).

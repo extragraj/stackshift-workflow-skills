@@ -1,10 +1,7 @@
 {
   "name": "@extragraj/stackshift-skills",
-  "version": "0.1.2",
+  "version": "0.1.5",
   "packageManager": "pnpm@9.0.0",
-  "workspaces": [
-    "cli"
-  ],
   "bin": {
     "stackshift": "./bin/cli.mjs"
   },
@@ -20,7 +17,8 @@
     "gray-matter": "^4.0.3"
   },
   "scripts": {
-    "build": "npm --prefix cli run build",
-    "prepack": "npm --prefix cli run build"
+    "build": "pnpm --filter stackshift-cli build",
+    "sync-version": "node scripts/sync-version.mjs",
+    "prepack": "pnpm sync-version && pnpm build"
   }
 }
