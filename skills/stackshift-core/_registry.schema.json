@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stackshift.dev/schemas/registry.schema.json",
+  "title": "StackShift Registry",
+  "description": "Shared schema for protocol and seed registries. Entries are identified by id and may point to either a single markdown file (`file`) or a directory (`dir`) copied recursively.",
+  "type": "object",
+  "required": ["$schema"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "description": { "type": "string" },
+    "tiers": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "protocols": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/entry" }
+    },
+    "seeds": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/entry" }
+    }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "required": ["id", "tier", "title", "summary"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$"
+        },
+        "tier": {
+          "enum": ["required", "recommended", "optional"]
+        },
+        "file": { "type": "string" },
+        "dir": { "type": "string" },
+        "title": { "type": "string" },
+        "summary": { "type": "string" }
+      },
+      "oneOf": [
+        { "required": ["file"] },
+        { "required": ["dir"] }
+      ],
+      "additionalProperties": false
+    }
+  }
+}

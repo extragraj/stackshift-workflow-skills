@@ -33,6 +33,10 @@ Run after the last step. Items are grouped by tier — **required** items must a
 - [ ] Props interface imported from `"."` in the variant file (never from `@stackshift-ui`)
 - [ ] Function signature destructures individual props (not `{ data }`)
 - [ ] `export default` at top, named export immediately below
+- [ ] All preconditions verified before `ui-forge` invocation (empty `variant_[x].tsx` exists, dynamic import registered, props interface exported)
+- [ ] `ui-forge` invoked with `--signal CONVERT_VARIANT` and `--mode body-only`
+- [ ] All postconditions passed (FORGE NOTES header present, `index.tsx` unchanged, no unexpected files created)
+- [ ] No StackShift-managed files were modified by `ui-forge` (only the `variant_[x].tsx` body)
 
 ### Step 5 — GROQ Query
 - [ ] Only non-scalar fields have explicit projections

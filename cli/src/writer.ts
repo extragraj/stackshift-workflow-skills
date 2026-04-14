@@ -1,4 +1,4 @@
-import { writeFileSync } from 'fs';
+import { writeFileSync, renameSync } from 'fs';
 import fsExtra from 'fs-extra';
 const { copySync, ensureDirSync, readJsonSync, writeJsonSync, pathExistsSync, readFileSync, removeSync } = fsExtra;
 import { join, resolve, basename } from 'path';
@@ -14,6 +14,16 @@ const protocolsDir = resolve(__dirname, '../../skills/stackshift-core/protocols'
 const skillVersionPath = resolve(__dirname, '../../skill.version');
 
 const LOCK_FILE = 'skills-lock.json';
+
+/**
+ * Atomic JSON write: write to a `.tmp` file, then rename.
+ * Prevents lock-file corruption if the process is killed mid-write.
+ */
+function writeJsonAtomic(filePath: string, data: unknown): void {
+  const tmpPath = `${filePath}.tmp`;
+  writeJsonSync(tmpPath, data, { spaces: 2 });
+  renameSync(tmpPath, filePath);
+}
 
 interface LockEntry {
   name: string;
@@ -55,7 +65,7 @@ function appendLock(lockPath: string, entry: LockEntry): void {
   lock.skills = lock.skills.filter((s) => s.name !== entry.name);
 
   lock.skills.push(entry);
-  writeJsonSync(lockPath, lock, { spaces: 2 });
+  writeJsonAtomic(lockPath, lock);
 }
 
 function copySkillFolder(folderPath: string, targetDir: string): void {
@@ -77,7 +87,10 @@ function buildCustomProtocolSkill(
     additionalIds.length === 0 ? 'required' : `required + ${additionalIds.join(', ')}`;
 
   const rows = selected
-    .map((p) => `| ${p.title} | \`protocols/${p.file}\` | — |`)
+    .map((p) => {
+      const pathValue = p.file ? `protocols/${p.file}` : `protocols/${p.dir}`;
+      return `| ${p.title} | \`${pathValue}\` | — |`;
+    })
     .join('\n');
 
   const skillContent = matter.stringify(
@@ -180,7 +193,7 @@ function cleanupLockFile(lockPath: string, newBundleName: string): void {
     lock.skills = lock.skills.filter(
       (s) => !s.name.startsWith('stackshift-protocols-') || s.name === newBundleName
     );
-    writeJsonSync(lockPath, lock, { spaces: 2 });
+    writeJsonAtomic(lockPath, lock);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.warn(`Warning: Could not clean lock file ${lockPath}: ${message}`);
@@ -231,17 +244,28 @@ function writeStackshiftMarker(
   };
 
   ensureDirSync(join(process.cwd(), '.stackshift'));
-  writeJsonSync(
-    markerPath,
-    {
-      skillVersion,
-      installedAt: new Date().toISOString(),
-      mode: modeMap[choices.protocolTier],
-      protocols: protocols.map(({ id, tier, file }) => ({ id, tier, file })),
-      // Seeds removed - not materialized to project (remain in skill only as standard strategies)
-    },
-    { spaces: 2 },
-  );
+
+  // Preserve AI-agent-added fields (uiForgeIntegration, pendingDesignArchBridge) across re-installs.
+  let existing: Record<string, unknown> = {};
+  if (pathExistsSync(markerPath)) {
+    try {
+      existing = readJsonSync(markerPath) as Record<string, unknown>;
+    } catch { /* overwrite on parse failure */ }
+  }
+
+  writeJsonAtomic(markerPath, {
+    ...existing,
+    skillVersion,
+    installedAt: new Date().toISOString(),
+    mode: modeMap[choices.protocolTier],
+    protocols: protocols.map(({ id, tier, file, dir }) => {
+      const entry: { id: string; tier: string; file?: string; dir?: string } = { id, tier };
+      if (file) entry.file = file;
+      if (dir) entry.dir = dir;
+      return entry;
+    }),
+    // Seeds removed - not materialized to project (remain in skill only as standard strategies)
+  });
 }
 
 interface InstallResult {

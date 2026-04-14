@@ -303,6 +303,46 @@ Create `<project>/.stackshift/installed.json`:
 
 **Note:** Seeds field is not included because seeds are not materialized to projects.
 
+### Canonical `installed.json` Shape
+
+The file can eventually hold additional fields written by the AI agent at bootstrap time. The full possible shape is:
+
+```json
+{
+  "skillVersion": "0.1.7",
+  "installedAt": "2026-04-14T00:00:00Z",
+  "mode": "recommended",
+  "protocols": [
+    { "id": "factory-function-pattern", "tier": "required", "file": "factory-function-pattern.md" }
+  ],
+  "pendingDesignArchBridge": {
+    "designStandards": {
+      "stackshiftVariantRouter": "./docs/protocol/variant-router.md"
+    }
+  },
+  "uiForgeIntegration": {
+    "installed": false,
+    "scanCompleted": false,
+    "scanTimestamp": "2026-04-14T00:00:00Z",
+    "uiForgeVersion": "0.2.0",
+    "skillDir": "/abs/path/to/ui-forge"
+  }
+}
+```
+
+**Field ownership:**
+
+| Field | Written by | When |
+|-------|-----------|------|
+| `skillVersion` | CLI + bootstrap | Every install / repair |
+| `installedAt` | CLI + bootstrap | Every install / repair |
+| `mode` | CLI + bootstrap | Every install / repair |
+| `protocols` | CLI + bootstrap | Every install / repair |
+| `pendingDesignArchBridge` | AI agent (bootstrap Step 6b) | When `design/design-arch.json` is absent |
+| `uiForgeIntegration` | AI agent (bootstrap Step 6d) | After `ui-forge` detection |
+
+Fields added by the AI agent are optional and only appear when relevant. The CLI writes only the first four fields and never removes agent-added fields during re-install.
+
 This file is the source of truth for what has been installed. Future invocations read it to:
 
 - Skip bootstrap entirely (it exists → we're done).

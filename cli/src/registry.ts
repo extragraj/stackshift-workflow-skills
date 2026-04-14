@@ -6,6 +6,7 @@ import matter from 'gray-matter';
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const skillsDir = resolve(__dirname, '../../skills');
 const protocolsRegistryPath = resolve(__dirname, '../../skills/stackshift-core/protocols/_registry.json');
+const seedsRegistryPath = resolve(__dirname, '../../skills/stackshift-core/seeds/_registry.json');
 const skillVersionPath = resolve(__dirname, '../../skill.version');
 
 export type SkillTier = 'required' | 'recommended' | 'optional' | 'core';
@@ -23,7 +24,8 @@ export interface SkillEntry {
 export interface ProtocolEntry {
   id: string;
   tier: 'required' | 'recommended' | 'optional';
-  file: string;
+  file?: string;
+  dir?: string;
   title: string;
   summary: string;
 }
@@ -31,7 +33,8 @@ export interface ProtocolEntry {
 export interface SeedEntry {
   id: string;
   tier: 'required' | 'recommended' | 'optional';
-  file: string;
+  file?: string;
+  dir?: string;
   title: string;
   summary: string;
 }
@@ -60,7 +63,17 @@ function inferTier(name: string, frontmatter: Record<string, unknown>): SkillTie
 export function loadSkills(): SkillEntry[] {
   const entries: SkillEntry[] = [];
 
-  for (const folder of readdirSync(skillsDir)) {
+  let folders: string[];
+  try {
+    folders = readdirSync(skillsDir);
+  } catch {
+    throw new Error(
+      `Could not read skills directory at ${skillsDir}. ` +
+      `Ensure the package is installed correctly.`
+    );
+  }
+
+  for (const folder of folders) {
     const folderPath = join(skillsDir, folder);
     const skillFile = join(folderPath, 'SKILL.md');
 
@@ -88,12 +101,31 @@ export function loadSkills(): SkillEntry[] {
 }
 
 export function loadProtocolRegistry(): ProtocolRegistry {
-  const raw = readFileSync(protocolsRegistryPath, 'utf8');
-  const parsed = JSON.parse(raw) as { protocols?: ProtocolEntry[]; seeds?: SeedEntry[] };
+  let parsed: { protocols?: ProtocolEntry[] };
+  try {
+    const raw = readFileSync(protocolsRegistryPath, 'utf8');
+    parsed = JSON.parse(raw) as { protocols?: ProtocolEntry[] };
+  } catch {
+    throw new Error(
+      `Could not load protocol registry at ${protocolsRegistryPath}. ` +
+      `The skills directory may be corrupted or missing.`
+    );
+  }
+
   return {
     protocols: parsed.protocols ?? [],
-    seeds: parsed.seeds ?? [],
+    seeds: loadSeedRegistry(),
   };
+}
+
+export function loadSeedRegistry(): SeedEntry[] {
+  try {
+    const raw = readFileSync(seedsRegistryPath, 'utf8');
+    const parsed = JSON.parse(raw) as { seeds?: SeedEntry[] };
+    return parsed.seeds ?? [];
+  } catch {
+    return [];
+  }
 }
 
 export function readSkillVersion(): string {

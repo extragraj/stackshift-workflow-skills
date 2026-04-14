@@ -35,6 +35,59 @@ import { loadSkills, loadProtocolRegistry } from './registry.js';
 import { runPrompts } from './prompts.js';
 import { writeSelection } from './writer.js';
 import { parseFlags, validateFlags, hasRequiredFlags, showHelp } from './flags.js';
+import type { Platform, InstallChoices } from './prompts.js';
+
+function resolveTargetDir(scope: 'project' | 'global', platform: Platform): string {
+  const baseDir = platform === 'agents' ? '.agents' : '.claude';
+  if (scope === 'global') return join(homedir(), baseDir, 'skills');
+  return join(process.cwd(), baseDir, 'skills');
+}
+
+/**
+ * Verify that stackshift-core landed on disk for each platform in the install results.
+ * If any platform is missing the core skill, installation silently failed — error out.
+ */
+function validateWriteResults(
+  choices: InstallChoices,
+  results: Array<{ platform: Platform; skills: string[] }>,
+): void {
+  for (const result of results) {
+    const targetDir = resolveTargetDir(choices.scope, result.platform);
+    const coreDir = join(targetDir, 'stackshift-core');
+    if (!pathExistsSync(coreDir)) {
+      console.error(
+        `Error: Skills not found at ${targetDir} after installation.\n` +
+        `Check filesystem permissions and try again.`,
+      );
+      process.exit(1);
+    }
+  }
+}
+
+/**
+ * Emit a note when extra platforms were synced beyond what the user selected.
+ * Happens when StackShift is already installed on a platform the user didn't pick.
+ */
+function reportCrossPlatformSync(
+  choices: InstallChoices,
+  results: Array<{ platform: Platform; skills: string[] }>,
+): void {
+  const extraPlatforms = results
+    .filter((r) => !choices.platforms.includes(r.platform))
+    .map((r) => r.platform);
+
+  if (extraPlatforms.length === 0) return;
+
+  const labels = extraPlatforms
+    .map((p) => (p === 'agents' ? '.agents/' : '.claude/'))
+    .join(', ');
+
+  note(
+    `Also synced: ${labels}\n` +
+    `(Existing installation detected — kept in sync)`,
+    'Cross-platform sync',
+  );
+}
 
 interface LockEntry {
   name: string;
@@ -94,6 +147,9 @@ export async function install(): Promise<void> {
       return;
     }
 
+    validateWriteResults(choices, results);
+    reportCrossPlatformSync(choices, results);
+
     // Format output
     const platformLabels = choices.platforms.map(p => {
       const baseDir = p === 'agents' ? '.agents' : '.claude';
@@ -147,12 +203,18 @@ export async function install(): Promise<void> {
     existingProtocolBundle,
   );
 
+  const s3 = spinner();
+  s3.start('Installing skills');
   const results = writeSelection(choices, skills, protocolRegistry.protocols);
+  s3.stop('Installation complete');
 
   if (results.length === 0) {
     outro('Nothing was installed.');
     return;
   }
+
+  validateWriteResults(choices, results);
+  reportCrossPlatformSync(choices, results);
 
   // Group results by platform for cleaner output
   const platformLabels = choices.platforms.map(p => {

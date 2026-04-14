@@ -1,10 +1,21 @@
 import { intro, outro, select, spinner } from '@clack/prompts';
 import fsExtra from 'fs-extra';
 const { readdirSync, pathExistsSync, removeSync, readJsonSync, writeJsonSync, readFileSync } = fsExtra;
+import { renameSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { fileURLToPath } from 'url';
 import { resolve } from 'path';
+
+/**
+ * Atomic JSON write: write to a `.tmp` file, then rename.
+ * Prevents lock-file corruption if the process is killed mid-write.
+ */
+function writeJsonAtomic(filePath: string, data: unknown): void {
+  const tmpPath = `${filePath}.tmp`;
+  writeJsonSync(tmpPath, data, { spaces: 2 });
+  renameSync(tmpPath, filePath);
+}
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const skillVersionPath = resolve(__dirname, '../../skill.version');
@@ -20,8 +31,9 @@ interface LockFile {
 }
 
 interface InstalledJson {
+  skillVersion?: string;
   mode?: string;
-  protocols?: Array<{ id: string; tier: string; file: string }>;
+  protocols?: Array<{ id: string; tier: string; file?: string; dir?: string }>;
 }
 
 type Platform = 'agents' | 'claude';
@@ -130,7 +142,7 @@ function cleanLockFile(lockPath: string, keepBundle: string): void {
     lock.skills = lock.skills.filter(
       (s) => !s.name.startsWith('stackshift-protocols-') || s.name === keepBundle
     );
-    writeJsonSync(lockPath, lock, { spaces: 2 });
+    writeJsonAtomic(lockPath, lock);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.warn(`Warning: Could not update ${lockPath}: ${message}`);
@@ -179,22 +191,18 @@ function updateInstalledMarker(keepBundle: string): void {
     const newMode = bundleToMode[keepBundle] || existing.mode;
 
     // Read current version
-    let skillVersion = existing.protocols?.[0]?.tier || '0.1.0';
+    let skillVersion = existing.skillVersion || '0.1.0';
     try {
       skillVersion = readFileSync(skillVersionPath, 'utf8').trim();
     } catch { /* use existing */ }
 
     // Update the marker with new mode
-    writeJsonSync(
-      markerPath,
-      {
-        ...existing,
-        skillVersion,
-        mode: newMode,
-        installedAt: new Date().toISOString(),
-      },
-      { spaces: 2 }
-    );
+    writeJsonAtomic(markerPath, {
+      ...existing,
+      skillVersion,
+      mode: newMode,
+      installedAt: new Date().toISOString(),
+    });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.warn(`Warning: Could not update .stackshift/installed.json: ${message}`);

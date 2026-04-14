@@ -10,7 +10,7 @@ cli/pnpm-lock.yaml
 cli/package-lock.json
 cli/yarn.lock
 
-.claude
+.claude/settings.local.json
 
 # OS files
 .DS_Store

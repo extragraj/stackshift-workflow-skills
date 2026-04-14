@@ -8,6 +8,8 @@ Authoritative definitions of the five install modes offered during bootstrap. Ea
 
 **Intent:** Evaluate the skill without committing to conventions yet, or use skill defaults exclusively.
 
+**Availability:** AI-agent bootstrap prompt only. Not available via the CLI (`npx @extragraj/stackshift-skills init`). The CLI always writes a bootstrap marker with a selected tier.
+
 **Materialized:**
 - Nothing copied to `/docs/`
 - No project infrastructure created

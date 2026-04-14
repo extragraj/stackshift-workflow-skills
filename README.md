@@ -1,6 +1,6 @@
 # StackShift Skill
 
-> **Version** 0.1.6 | **Sanity** v3.17 | **Next.js** 14 Pages Router | **TypeScript** Strict
+> **Version** 0.1.7 | **Sanity** v3.17 | **Next.js** 14 Pages Router | **TypeScript** Strict
 
 A structured agentic skill for building sections and variants inside StackShift, a composable Sanity v3 and Next.js page-builder. Enforces a strict 5-step implementation workflow, governs quality through a tiered protocol system, and delegates component rendering to the `ui-forge` companion skill.
 
@@ -430,6 +430,10 @@ stackshift-workflow-skills/
 ├── pnpm-workspace.yaml           # pnpm workspace configuration
 ├── package.json                  # Root package (@extragraj/stackshift-skills)
 ├── pnpm-lock.yaml                # Dependency lock file (pnpm only)
+├── CLAUDE.md                     # Project instructions for AI coding tools
+│
+├── bin/
+│   └── cli.mjs                   # Published CLI entry point (npx stackshift)
 │
 ├── scripts/
 │   └── sync-version.mjs          # Syncs skill.version to package.json, cli/package.json, README.md
@@ -437,10 +441,11 @@ stackshift-workflow-skills/
 ├── skills/
 │   ├── stackshift-core/
 │   │   ├── SKILL.md              # Main router: workflow table, lookup table, hard rules
+│   │   ├── _registry.schema.json # Shared JSON schema for protocol/seed registries
 │   │   ├── workflow/             # 5 step files and checklist (loaded on demand)
 │   │   ├── protocols/            # 9 protocol files and _registry.json
 │   │   ├── references/           # Lookup tables (field factories, GROQ, types, versions)
-│   │   ├── seeds/                # Seeding strategies and _registry.json (empty in v0.1.2)
+│   │   ├── seeds/                # Seeding strategies and _registry.json (empty in v0.1.7)
 │   │   └── bootstrap/            # First-run install flow and modes
 │   │
 │   ├── stackshift-protocols-required/
@@ -458,8 +463,10 @@ stackshift-workflow-skills/
     └── src/
         ├── index.ts              # Command router
         ├── install.ts            # Orchestrates init flow
+        ├── repair.ts             # Orchestrates repair flow
         ├── registry.ts           # Loads skills via gray-matter
         ├── prompts.ts            # Interactive prompts (@clack/prompts)
+        ├── flags.ts              # CLI flag parsing (--tier, --scope, etc.)
         └── writer.ts             # Copies skills, writes lock file and bootstrap marker
 ```
 

@@ -94,9 +94,10 @@ The implementation order is **strict**. Each step must complete before the next 
 | 3 | TypeScript types | `workflow/3-types.md` | `types.ts` |
 | 4 | Component variant | `workflow/4-variants.md` → **invokes `ui-forge`** | `components/sections/[name]/` |
 | 5 | GROQ query | `workflow/5-groq.md` | `pages/api/query.ts` |
-| 6 | Verify | `workflow/checklist.md` | — |
 
 **Load only the step you are on.** Do not pre-load all steps.
+
+After Step 5 completes, run `workflow/checklist.md` as a final verification pass (not a 6th workflow step).
 
 **Why this order:** Missing types/files break TypeScript and module resolution. GROQ failures only affect data output — safe to do last. See `workflow/1-schema-fields.md` for the full rationale.
 

@@ -101,8 +101,8 @@ export async function runPrompts(
   const scopeChoice = await select<ScopeChoice>({
     message: 'Install location:',
     options: [
-      { value: 'project', label: 'Project (.agents/skills/)', hint: 'recommended' },
-      { value: 'global', label: 'Global (~/.agents/skills/)' },
+      { value: 'project', label: 'Project (current directory)', hint: 'recommended' },
+      { value: 'global', label: 'Global (home directory)' },
     ],
     initialValue: 'project',
   });
