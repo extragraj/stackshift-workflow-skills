@@ -23,3 +23,5 @@ Quick lookup: which file does what in a StackShift project.
 | `design/standards/stackshift-ui.md` | StackShift UI conventions for UI Forge's design-standards pipeline (seeded at bootstrap) |
 | `design/standards/brand.md` | Project brand document: voice, palette, typography, imagery (seeded at bootstrap when `brand` protocol is active) |
 | `.forgeignore` | UI Forge scan exclusions — Sanity + Next.js defaults written at bootstrap |
+| `.codex/skills/stackshift-core/` | StackShift skill install location for Codex CLI (project scope) |
+| `.codex/AGENTS.md` or `AGENTS.md` | Codex skill load entry — written by CLI when `--platform codex` is used |

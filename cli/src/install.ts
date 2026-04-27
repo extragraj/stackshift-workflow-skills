@@ -38,7 +38,9 @@ import { parseFlags, validateFlags, hasRequiredFlags, showHelp } from './flags.j
 import type { Platform, InstallChoices } from './prompts.js';
 
 function resolveTargetDir(scope: 'project' | 'global', platform: Platform): string {
-  const baseDir = platform === 'agents' ? '.agents' : '.claude';
+  const baseDir = platform === 'agents' ? '.agents'
+                : platform === 'claude'  ? '.claude'
+                : '.codex';
   if (scope === 'global') return join(homedir(), baseDir, 'skills');
   return join(process.cwd(), baseDir, 'skills');
 }
@@ -79,7 +81,7 @@ function reportCrossPlatformSync(
   if (extraPlatforms.length === 0) return;
 
   const labels = extraPlatforms
-    .map((p) => (p === 'agents' ? '.agents/' : '.claude/'))
+    .map((p) => p === 'agents' ? '.agents/' : p === 'claude' ? '.claude/' : '.codex/')
     .join(', ');
 
   note(
@@ -99,8 +101,10 @@ interface LockFile {
   skills: LockEntry[];
 }
 
-function readLockFile(scope: 'project' | 'global', platform: 'agents' | 'claude'): LockFile | null {
-  const baseDir = platform === 'agents' ? '.agents' : '.claude';
+function readLockFile(scope: 'project' | 'global', platform: 'agents' | 'claude' | 'codex'): LockFile | null {
+  const baseDir = platform === 'agents' ? '.agents'
+                : platform === 'claude'  ? '.claude'
+                : '.codex';
   const lockPath = scope === 'global'
     ? join(homedir(), baseDir, 'skills-lock.json')
     : join(process.cwd(), baseDir, 'skills-lock.json');
@@ -152,7 +156,7 @@ export async function install(): Promise<void> {
 
     // Format output
     const platformLabels = choices.platforms.map(p => {
-      const baseDir = p === 'agents' ? '.agents' : '.claude';
+      const baseDir = p === 'agents' ? '.agents' : p === 'claude' ? '.claude' : '.codex';
       return choices.scope === 'global' ? `~/${baseDir}/skills/` : `${baseDir}/skills/`;
     });
 
@@ -162,9 +166,14 @@ export async function install(): Promise<void> {
       : `Installed ${skillNames.length} skill(s) to ${platformLabels.length} platforms:\n` +
         platformLabels.map(label => `  → ${label}`).join('\n');
 
+    const agentsMdNote = choices.platforms.includes('codex')
+      ? '\n  AGENTS.md ← StackShift skill entry written'
+      : '';
+
     outro(
       summary + '\n' +
-        skillNames.map((name) => `  ✓ ${name}`).join('\n'),
+        skillNames.map((name) => `  ✓ ${name}`).join('\n') +
+        agentsMdNote,
     );
     return;
   }
@@ -172,26 +181,32 @@ export async function install(): Promise<void> {
   // Interactive mode
   intro('stackshift init — install StackShift skills');
 
-  // Check for existing protocol bundle (try both platforms)
+  // Check for existing protocol bundle across all platforms
   const agentsLock = readLockFile('project', 'agents');
   const claudeLock = readLockFile('project', 'claude');
+  const codexLock  = readLockFile('project', 'codex');
 
-  const agentsBundle = agentsLock?.skills.find(s =>
-    s.name.startsWith('stackshift-protocols-')
-  );
-  const claudeBundle = claudeLock?.skills.find(s =>
-    s.name.startsWith('stackshift-protocols-')
-  );
+  const agentsBundle = agentsLock?.skills.find(s => s.name.startsWith('stackshift-protocols-'));
+  const claudeBundle = claudeLock?.skills.find(s => s.name.startsWith('stackshift-protocols-'));
+  const codexBundle  = codexLock?.skills.find(s =>  s.name.startsWith('stackshift-protocols-'));
 
-  const existingProtocolBundle = agentsBundle || claudeBundle;
+  const existingProtocolBundle = agentsBundle || claudeBundle || codexBundle;
 
-  // Warn if different tiers across platforms
-  if (agentsBundle && claudeBundle && agentsBundle.name !== claudeBundle.name) {
+  // Warn if different tiers detected across platforms
+  const detectedBundles = [
+    agentsBundle && { label: '.agents', name: agentsBundle.name },
+    claudeBundle && { label: '.claude', name: claudeBundle.name },
+    codexBundle  && { label: '.codex',  name: codexBundle.name  },
+  ].filter(Boolean) as Array<{ label: string; name: string }>;
+
+  const uniqueBundleNames = new Set(detectedBundles.map(b => b.name));
+  if (detectedBundles.length > 1 && uniqueBundleNames.size > 1) {
     note(
       `Different tiers detected:\n` +
-      `  .agents: ${agentsBundle.name.replace('stackshift-protocols-', '')}\n` +
-      `  .claude: ${claudeBundle.name.replace('stackshift-protocols-', '')}\n\n` +
-      `This installation will replace BOTH.`,
+      detectedBundles
+        .map(b => `  ${b.label}: ${b.name.replace('stackshift-protocols-', '')}`)
+        .join('\n') +
+      `\n\nThis installation will replace ${detectedBundles.length === 2 ? 'BOTH' : 'ALL'}.`,
       'Warning'
     );
   }
@@ -218,7 +233,7 @@ export async function install(): Promise<void> {
 
   // Group results by platform for cleaner output
   const platformLabels = choices.platforms.map(p => {
-    const baseDir = p === 'agents' ? '.agents' : '.claude';
+    const baseDir = p === 'agents' ? '.agents' : p === 'claude' ? '.claude' : '.codex';
     return choices.scope === 'global' ? `~/${baseDir}/skills/` : `${baseDir}/skills/`;
   });
 
@@ -228,8 +243,13 @@ export async function install(): Promise<void> {
     : `Installed ${skillNames.length} skill(s) to ${platformLabels.length} platforms:\n` +
       platformLabels.map(label => `  → ${label}`).join('\n');
 
+  const agentsMdNote = choices.platforms.includes('codex')
+    ? '\n  AGENTS.md ← StackShift skill entry written'
+    : '';
+
   outro(
     summary + '\n' +
-      skillNames.map((name) => `  ✓ ${name}`).join('\n'),
+      skillNames.map((name) => `  ✓ ${name}`).join('\n') +
+      agentsMdNote,
   );
 }

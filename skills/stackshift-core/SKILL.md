@@ -25,12 +25,13 @@ Before doing any workflow step:
 
 ### 1. Validate installation integrity
 
-Check for multi-tier installations by listing all folders in `.agents/skills/` and `.claude/skills/` (if they exist):
+Check for multi-tier installations by listing all folders in `.agents/skills/`, `.claude/skills/`, and `.codex/skills/` (if they exist):
 
 ```bash
 # Find all protocol bundle folders
 ls .agents/skills/ 2>/dev/null | grep "^stackshift-protocols-"
 ls .claude/skills/ 2>/dev/null | grep "^stackshift-protocols-"
+ls .codex/skills/  2>/dev/null | grep "^stackshift-protocols-"
 ```
 
 Count the unique protocol bundle folder names found.
@@ -49,7 +50,7 @@ Each tier already includes all lower tiers, so having multiple is redundant and 
 To fix this issue:
 1. Run: npx @extragraj/stackshift-skills repair
    OR
-2. Manually delete all but one protocol bundle folder from .agents/skills/ and .claude/skills/
+2. Manually delete all but one protocol bundle folder from .agents/skills/, .claude/skills/, or .codex/skills/ (whichever contains your install)
 3. Run this skill again
 
 Which tier do you want to keep?
@@ -67,7 +68,8 @@ stackshift-core is required for StackShift sections.
 It provides the workflow, protocols, and references system.
 
 To fix:
-Run: npx @extragraj/stackshift-skills init
+- Claude Code / General: npx @extragraj/stackshift-skills init
+- Codex CLI: npx @extragraj/stackshift-skills init --platform codex --no-interactive
 ```
 
 **Stop workflow.** Wait for user to install.

@@ -137,8 +137,10 @@ Resolve the `ui-forge` skill directory using this lookup order. Use the **first 
 1. Environment variable `UI_FORGE_SKILL_DIR` if set
 2. `.claude/skills/ui-forge/` (project-scope Claude Code install)
 3. `.agents/skills/ui-forge/` (project-scope agents install)
-4. `~/.claude/skills/ui-forge/` (global Claude Code install)
-5. `~/.agents/skills/ui-forge/` (global agents install)
+4. `.codex/skills/ui-forge/` (project-scope Codex CLI install)
+5. `~/.claude/skills/ui-forge/` (global Claude Code install)
+6. `~/.agents/skills/ui-forge/` (global agents install)
+7. `~/.codex/skills/ui-forge/` (global Codex CLI install)
 
 **If none resolve:** halt Step 4 with a clear error:
 
@@ -149,7 +151,10 @@ Step 4 requires the ui-forge companion skill to generate variant bodies.
 StackShift never authors component code directly.
 
 Install ui-forge:
-  npx skills add extragraj/ui-forge -a claude-code
+  Claude Code:  npx skills add extragraj/ui-forge -a claude-code
+  Codex CLI:    npx @extragraj/stackshift-skills init --platform codex --no-interactive
+                (then install ui-forge to .codex/skills/ui-forge/ via its own installer)
+  General:      npx skills add extragraj/ui-forge
 
 Then re-run Step 4.
 ```

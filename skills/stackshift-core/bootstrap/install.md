@@ -32,7 +32,7 @@ Each entry carries a `tier` (`required` / `recommended` / `optional`), a `title`
 
 ## Step 3 — Prompt the user for install mode
 
-Present the five modes using the `ask_user_input_v0` tool if available, otherwise in plain conversation. See `bootstrap/modes.md` for the authoritative definitions.
+Present the five modes using the `ask_user_input_v0` tool if it is available in your runtime (Claude Code). On all other runtimes — including Codex CLI — ask in plain conversation and wait for the user's typed reply. The interaction is identical; only the mechanism differs. See `bootstrap/modes.md` for the authoritative definitions.
 
 > **Quick-reference summary to show the user:**
 >
@@ -213,8 +213,10 @@ Resolve the `ui-forge` skill directory using this lookup order (first match wins
 1. Environment variable `UI_FORGE_SKILL_DIR` if set
 2. `.claude/skills/ui-forge/` (project-scope Claude Code install)
 3. `.agents/skills/ui-forge/` (project-scope agents install)
-4. `~/.claude/skills/ui-forge/` (global Claude Code install)
-5. `~/.agents/skills/ui-forge/` (global agents install)
+4. `.codex/skills/ui-forge/` (project-scope Codex CLI install)
+5. `~/.claude/skills/ui-forge/` (global Claude Code install)
+6. `~/.agents/skills/ui-forge/` (global agents install)
+7. `~/.codex/skills/ui-forge/` (global Codex CLI install)
 
 **If `ui-forge` is installed and `design/design-arch.json` is absent:**
 

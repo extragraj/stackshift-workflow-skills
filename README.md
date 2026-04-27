@@ -1,6 +1,6 @@
 # StackShift Skill
 
-> **Version** 0.1.8 | **Sanity** v3.17 | **Next.js** 14 Pages Router | **TypeScript** Strict
+> **Version** 0.1.9 | **Sanity** v3.17 | **Next.js** 14 Pages Router | **TypeScript** Strict
 
 A structured agentic skill for building sections and variants inside StackShift, a composable Sanity v3 and Next.js page-builder. Enforces a strict 5-step implementation workflow, governs quality through a tiered protocol system, and delegates component rendering to the `ui-forge` companion skill.
 
@@ -8,7 +8,17 @@ A structured agentic skill for building sections and variants inside StackShift,
 
 ## Installation
 
-Two installation methods are available: **manual installation** via `npx skills add`, or **guided installation** via the interactive CLI. Both methods install to `.agents/skills/` or `.claude/skills/` depending on platform preference. The `stackshift-core` package is required in all cases.
+Three installation methods are available: **manual installation** via `npx skills add`, **guided installation** via the interactive CLI, or **Codex CLI installation** for OpenRouter-powered agents. The `stackshift-core` package is required in all cases.
+
+### Platform Overview
+
+| Platform | Install path | Skill discovery | Install command |
+|---|---|---|---|
+| General agents | `.agents/skills/` | Platform-specific | `--platform agents` |
+| Claude Code | `.claude/skills/` | SKILL.md frontmatter (auto-trigger) | `--platform claude` |
+| Codex CLI | `.codex/skills/` | `AGENTS.md` (written by CLI) | `--platform codex` |
+
+---
 
 ### Option A — Manual Installation
 
@@ -85,7 +95,7 @@ npx . init
 |------|--------|---------|-------------|
 | `--tier` | `required`, `recommended`, `full` | `recommended` | Protocol tier to install |
 | `--scope` | `project`, `global` | `project` | Install location |
-| `--platform` | `agents`, `claude`, `agents,claude` | `agents` | Platform(s) to install to |
+| `--platform` | `agents`, `claude`, `codex`, or comma-separated | `agents` | Platform(s) to install to |
 | `--no-interactive` | (flag) | `false` | Skip prompts, use flags + defaults |
 | `--help` | (flag) | - | Show help text |
 
@@ -112,7 +122,7 @@ This prevents accidental tier replacement and ensures the change is intentional.
 
 #### Multi-Platform Tier Detection
 
-If different tiers are installed across platforms (e.g., `required` in `.agents/` and `full` in `.claude/`), the CLI warns:
+If different tiers are installed across platforms (e.g., `required` in `.agents/` and `full` in `.claude/` or `.codex/`), the CLI warns:
 
 ```
 ┌  Warning
@@ -138,15 +148,62 @@ This scans for multiple protocol bundles and helps you keep only one.
 
 ---
 
+### Option C — Codex CLI (OpenRouter)
+
+Install StackShift for use with Codex CLI powered by OpenRouter.
+
+#### Prerequisites
+
+Configure Codex CLI with OpenRouter by editing `~/.codex/config.toml`:
+
+```toml
+model_provider = "openrouter"
+model = "openai/gpt-5.3-codex"
+model_reasoning_effort = "high"
+
+[model_providers.openrouter]
+name = "openrouter"
+base_url = "https://openrouter.ai/api/v1"
+env_key = "OPENROUTER_API_KEY"
+```
+
+Export your API key:
+```bash
+export OPENROUTER_API_KEY="sk-or-..."
+```
+
+#### Install StackShift skills for Codex
+
+```bash
+# Non-interactive (recommended)
+npx @extragraj/stackshift-skills init --platform codex --no-interactive
+
+# Interactive
+npx @extragraj/stackshift-skills init --platform codex
+
+# Install to both Claude Code and Codex CLI
+npx @extragraj/stackshift-skills init --platform claude,codex --no-interactive
+```
+
+This installs skills to `.codex/skills/` and writes (or updates) `AGENTS.md` at the project root. When you run `codex` in the project, it reads `AGENTS.md` and discovers the StackShift skill automatically.
+
+#### Verify
+
+After installation:
+- `.codex/skills/stackshift-core/` exists
+- `AGENTS.md` contains a `## StackShift Skill` section
+
+---
+
 ### Installation Process
 
-After installing via either Option A or Option B:
+After installing via Option A, B, or C:
 
 1. **Skills are installed** to chosen location(s) and platform(s):
    - `stackshift-core` (always included - workflow, protocols, references)
    - One protocol tier bundle (required, recommended, or full)
    - **Option A:** To `.agents/skills/` or `.claude/skills/` based on `-a` flag
-   - **Option B:** To selected platform(s) from interactive prompt or `--platform` flag
+   - **Option B/C:** To selected platform(s) from interactive prompt or `--platform` flag (including `.codex/skills/`)
 
 2. **Physical cleanup** (Option B only):
    - Old protocol bundle folders are automatically removed
@@ -166,13 +223,15 @@ After installing via either Option A or Option B:
 
 #### Installation Method Comparison
 
-| Feature | Option A (`npx skills add`) | Option B (`npx @extragraj/stackshift-skills init`) |
-|---------|----------------------------|---------------------------------------------------|
-| **Tier enforcement** | Manual (user must select correctly) | Automatic (radio buttons, only one selectable) |
-| **Core installation** | Manual (must remember to select) | Automatic (always included) |
-| **Physical cleanup** | No (old folders remain) | Yes (automatic removal) |
-| **Multi-tier prevention** | No (requires repair after) | Yes (prevents during install) |
-| **Automation support** | Limited | Full (with `--no-interactive` flag) |
+| Feature | Option A (`npx skills add`) | Option B (interactive CLI) | Option C (Codex CLI) |
+|---------|----------------------------|---------------------------|----------------------|
+| **Tier enforcement** | Manual | Automatic | Automatic |
+| **Core installation** | Manual | Automatic | Automatic |
+| **Physical cleanup** | No | Yes | Yes |
+| **Multi-tier prevention** | No | Yes | Yes |
+| **Automation support** | Limited | Full (`--no-interactive`) | Full (`--no-interactive`) |
+| **AGENTS.md generation** | No | No | Yes (automatic) |
+| **Platforms supported** | agents, claude | agents, claude, codex | codex (or combined) |
 
 **Note:** The `ui-forge` companion skill must be installed independently; StackShift bootstrap will detect and integrate it automatically when present.
 
