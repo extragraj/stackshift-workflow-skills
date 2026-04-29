@@ -45,7 +45,7 @@ Skills install to `.agents/skills/` in target projects (or `~/.agents/skills/` f
 - `protocols/_registry.json` — the only index the CLI and bootstrap read; adding a protocol requires a new entry here
 - `references/` — lookup tables (field factories, GROQ fragments, types, file map, versions); discoverable only via the router table in `SKILL.md` Section 3
 - `bootstrap/` — first-run install flow for materializing protocols into `/docs/protocol/` in target projects
-- `seeds/_registry.json` — seed strategies registry (empty in v0.1.0)
+- `seeds/` — seed strategies; each strategy has a canonical `.md` file here and a discoverable stub in `skills/stackshift-seed-<name>/`; `_registry.json` is the index
 
 **Protocol tier bundles** (`stackshift-protocols-required`, `stackshift-protocols-recommended`, `stackshift-protocols-full`) each contain only a `SKILL.md` index. All protocol content lives in `stackshift-core/protocols/`. Tiers are `required` / `recommended` / `optional`.
 
@@ -63,9 +63,10 @@ The CLI reads the `skills/` directory at runtime relative to its own `__dirname`
 ### Extending
 
 - **New protocol** → add `.md` to `protocols/`, register in `protocols/_registry.json`. For multi-file protocols use a directory and set `"dir"` instead of `"file"` in the registry entry.
+- **New seed strategy** → add canonical `.md` to `seeds/`, register in `seeds/_registry.json`, create a stub `skills/stackshift-seed-<name>/SKILL.md` pointing back to the canonical file.
 - **New workflow step** → add file to `workflow/`, add row to the step table in `SKILL.md` Section 1, update `workflow/checklist.md`.
 - **New reference lookup** → add file to `references/`, add matching row to the lookup router in `SKILL.md` Section 3. Files not listed there are unreachable by the workflow.
-- **After any structural change** → increment `skill.version`.
+- **After any structural change** → increment `skill.version` and update `README.md`.
 
 ### Bootstrap Flow
 
@@ -83,7 +84,7 @@ Bootstrap also wires up the StackShift ↔ UI Forge handshake when UI Forge is d
 
 StackShift delegates Step 4 variant body generation to the `ui-forge` companion skill. The two skills share state through three files:
 
-- `.stackshift/installed.json` — StackShift writes (`a11yRequired`, `protocols`, `uiForgeIntegration`); UI Forge reads for paired-mode detection.
+- `.stackshift/installed.json` — StackShift writes (`mode`, `protocols`, `seed`, `skillVersion`, `a11yRequired`, `uiForgeIntegration`); UI Forge reads for paired-mode detection.
 - `design/design-arch.json` — UI Forge owns most fields; StackShift writes `designStandards.*` pointers and the optional `_paired` mirror block.
 - `.claude/settings.json` — receives the StackShift PostToolUse hook entry when `auto-verify-hook` is active.
 
@@ -100,3 +101,20 @@ When a UI Forge feature ships that StackShift should surface (e.g. new signal, n
 ### Versioning
 
 The canonical version lives in `skill.version` (plain text, semver). Changes that update protocols, workflow, or bootstrap without altering the public CLI surface or breaking compatibility are tracked as **letter-suffixed sub-releases** (e.g. `0.1.9A`, `0.1.9B`) — a new file in `change-logs/` named `<x-y-zL>-short-description.md`, no version-number bump. Bump the numeric version only on breaking changes or when explicitly shipping a new minor/patch release.
+
+### Documentation
+
+`README.md` is the primary public-facing documentation. It must be kept up to date with every change — no exceptions.
+
+**After any change to skills, CLI, or architecture, update README.md to reflect:**
+
+- New or removed features (protocols, seeds, CLI flags, commands)
+- Changed behaviour (prompts, flow, defaults, repair logic)
+- Structural changes (new folders, renamed files, updated `installed.json` shape)
+- Version references (intro line, repository structure, compatibility table)
+
+**Documentation standards:**
+- Descriptions in the intro and section headers must be concise and professional — state capabilities without implementation detail (e.g. "supports seed strategies", not "pre-fills `initialValue/` with placeholder content")
+- All CLI prompt examples must match the actual output of the current code
+- All file structure diagrams must reflect the current `skills/` directory layout
+- Table entries for flags, protocols, and seeds must use their correct display names (title-case, no raw IDs)

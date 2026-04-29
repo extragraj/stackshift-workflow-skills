@@ -2,7 +2,7 @@
 
 > **Version** 0.2.0 | **Sanity** v3.17 | **Next.js** 14 Pages Router | **TypeScript** Strict
 
-A structured agentic skill for building sections and variants inside StackShift, a composable Sanity v3 and Next.js page-builder. Enforces a strict 5-step implementation workflow, governs quality through a tiered protocol system, and delegates component rendering to the `ui-forge` companion skill.
+A structured agentic skill for building sections and variants inside StackShift, a composable Sanity v3 and Next.js page-builder. Enforces a strict 5-step implementation workflow, governs quality through a tiered protocol system, supports seed strategies, and delegates component rendering to the `ui-forge` companion skill.
 
 ---
 
@@ -115,18 +115,18 @@ npx @extragraj/stackshift-skills init --seed initialvalue-seeding --no-interacti
 If a protocol tier is already installed and `init` runs again, the CLI detects the existing installation and prompts:
 
 ```
-? Protocol tier already installed: recommended
+? Protocol tier "recommended" is already installed.
   Replace with a different tier? (y/N)
 ```
 
 For custom tier selections, the prompt defaults to `Yes`:
 
 ```
-? Custom protocol selection detected.
+? A custom protocol selection is already installed.
   Replace with a pre-built tier? (Y/n)
 ```
 
-This prevents accidental tier replacement and ensures the change is intentional.
+Answering **No** does not cancel the session — it keeps the existing protocol tier and continues to the seed strategy, scope, and platform prompts. This lets you update only your seed selection without reinstalling protocols.
 
 #### Multi-Platform Tier Detection
 
@@ -266,6 +266,48 @@ All 15 registered protocols, organized by tier:
 
 ---
 
+## Seeding Strategies
+
+Seeding strategies pre-fill `initialValue/` with realistic placeholder content for Sanity Studio authors. Without initial values, every section variant opens as an empty form — a poor authoring experience. A seed strategy automates the extraction and mapping work so authors see real-looking content from day one.
+
+### How Seeds Work
+
+1. Activate a seed strategy during `npx @extragraj/stackshift-skills init` (prompted after protocol tier) or via `--seed <id>`.
+2. The selection is recorded in `.stackshift/installed.json` → `seed`.
+3. When the AI reaches Step 2 (Section Schema), it reads the `seed` field, loads the matching strategy from `stackshift-core/seeds/`, and follows it before writing any `initialValue/` file.
+4. **Only one seed strategy may be active at a time.** The `seed` key in `installed.json` is the single source of truth. Running `init` again replaces it; running `repair` resolves accidental multi-seed installs.
+
+### Available Seed Strategies
+
+| Strategy | ID | Applies to | What it does |
+|----------|----|-----------|--------------|
+| **Initial-Value Seeding** | `initialvalue-seeding` | Step 2 — `initialValue/` | Extracts all text from an HTML mockup or hardcoded component and maps each piece to the matching field in `schema/index.ts`. Writes realistic copy into `initialValue/index.ts` or per-variant files. Images and references are intentionally omitted (editors upload manually). |
+
+### Activating a Seed
+
+**Interactive (recommended):**
+```bash
+npx @extragraj/stackshift-skills init
+# → prompted after protocol tier selection
+```
+
+**Non-interactive:**
+```bash
+npx @extragraj/stackshift-skills init --seed initialvalue-seeding --no-interactive
+```
+
+**Deactivate:**
+```bash
+npx @extragraj/stackshift-skills init --seed none --no-interactive
+# or select "None (skip)" during interactive init
+```
+
+### Seed Discovery
+
+`stackshift-seed-*` packages are discoverable via `npx skills add` (Vercel). They are reference stubs — all strategy content lives in `stackshift-core/seeds/`. Installing the stub folder does not activate the seed; you must run `init` to record it in `installed.json`.
+
+---
+
 ## Bootstrap
 
 Bootstrap executes once on first AI invocation when `.stackshift/installed.json` is absent in the project root. It materializes selected protocols and creates project infrastructure (_registry.json, _template/, references/) to enable protocol customization and extension.
@@ -338,7 +380,7 @@ After bootstrap, protocols can be customized and extended by editing files in `/
 - Seeding strategies live in `stackshift-core/seeds/`; their content cannot be overridden at the project level
 - Activate a seed via `npx @extragraj/stackshift-skills init` or `--seed <id>` flag
 - Only ONE seed may be active at a time (recorded in `.stackshift/installed.json` → `seed`)
-- Available seeds: `initialvalue-seeding` — extracts copy from HTML mockups into `initialValue/index.ts`
+- Available seeds: **Initial-Value Seeding** (`initialvalue-seeding`) — extracts copy from HTML mockups and hardcoded components into `initialValue/index.ts`
 
 **Workflow** (Not Customizable)
 - Workflow steps remain in skill (`stackshift-core/workflow/`)
@@ -352,7 +394,7 @@ After bootstrap with "Recommended" mode:
 ```
 your-project/
 ├── .stackshift/
-│   └── installed.json          # Bootstrap marker (mode, protocols, timestamp, a11yRequired, uiForgeIntegration)
+│   └── installed.json          # Bootstrap marker (mode, protocols, seed, skillVersion, installedAt, a11yRequired, uiForgeIntegration)
 ├── .forgeignore                # Sanity + Next.js scan exclusions (incl. design/.handoff-cache/, design/claude-design-bundle/)
 ├── .claude/
 │   └── settings.json           # PostToolUse hook entry (only when auto-verify-hook protocol is active)
@@ -550,7 +592,7 @@ The two skills coordinate through three files (full ownership matrix in `protoco
 
 | File | Owner | StackShift writes | UI Forge writes |
 |------|-------|-------------------|-----------------|
-| `.stackshift/installed.json` | StackShift | `a11yRequired`, `protocols`, `uiForgeIntegration` | reads only |
+| `.stackshift/installed.json` | StackShift | `mode`, `protocols`, `seed`, `a11yRequired`, `uiForgeIntegration` | reads only |
 | `design/design-arch.json` | UI Forge | `designStandards.*` pointers, optional `_paired` mirror | tokens, patterns, components |
 | `.claude/settings.json` | shared | `PostToolUse` hook entry (when `auto-verify-hook` active) | none |
 
