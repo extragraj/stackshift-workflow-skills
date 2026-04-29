@@ -8,27 +8,32 @@ A structured agentic skill for building sections and variants inside StackShift,
 
 ## Installation
 
-Three installation methods are available: **manual installation** via `npx skills add`, **guided installation** via the interactive CLI, or **Codex CLI installation** for OpenRouter-powered agents. The `stackshift-core` package is required in all cases.
+Two installation methods are available: **`npx skills add`** for quick direct installs, or the **interactive CLI** for guided tier selection and multi-platform support. The `stackshift-core` package is required in all cases.
 
 ### Platform Overview
 
-| Platform | Install path | Skill discovery | Install command |
+| Platform | Install path | Skill discovery | Examples |
 |---|---|---|---|
-| General agents | `.agents/skills/` | Platform-specific | `--platform agents` |
-| Claude Code | `.claude/skills/` | SKILL.md frontmatter (auto-trigger) | `--platform claude` |
-| Codex CLI | `.codex/skills/` | `AGENTS.md` (written by CLI) | `--platform codex` |
+| Universal agents | `.agents/skills/` | Platform-specific | Amp, Cline, Codex, Cursor, DeepSeek, Gemini CLI, GitHub Copilot, Warp, and more |
+| Claude Code | `.claude/skills/` | SKILL.md frontmatter (auto-trigger) | — |
 
 ---
 
-### Option A — Manual Installation
+### Option A — npx skills add
 
-Install skill packages individually using the `npx skills add` command.
+Install skill packages directly using `npx skills add`. Specify `-a` to target the platform.
 
 ```bash
-# Install globally (available across all projects)
+# Universal agents (.agents/skills/) — global
+npx skills add extragraj/stackshift-workflow-skills -g -a agents
+
+# Universal agents (.agents/skills/) — project only
+npx skills add extragraj/stackshift-workflow-skills -a agents
+
+# Claude Code (.claude/skills/) — global
 npx skills add extragraj/stackshift-workflow-skills -g -a claude-code
 
-# Install to current project only
+# Claude Code (.claude/skills/) — project only
 npx skills add extragraj/stackshift-workflow-skills -a claude-code
 ```
 
@@ -37,6 +42,7 @@ npx skills add extragraj/stackshift-workflow-skills -a claude-code
 | Flag | Description |
 |------|-------------|
 | `-g` | Install globally (available across all projects) |
+| `-a agents` | Install to `.agents/skills/` (universal — all general agents) |
 | `-a claude-code` | Install to `.claude/skills/` (Claude Code) |
 
 #### Important Installation Guidelines
@@ -45,9 +51,9 @@ npx skills add extragraj/stackshift-workflow-skills -a claude-code
 
 1. **Always install `stackshift-core`** - This is required for the workflow system
 2. **Install only ONE protocol tier bundle** - Select either:
-   - `stackshift-protocols-required` (4 required protocols only)
-   - `stackshift-protocols-recommended` (4 required + 5 recommended) ← **Recommended**
-   - `stackshift-protocols-full` (all tiers)
+   - `stackshift-protocols-required` (required protocols only)
+   - `stackshift-protocols-recommended` (required + recommended protocols)
+   - `stackshift-protocols-full` (all protocols)
 
 **Do NOT select multiple protocol tier bundles** (e.g., both `required` and `full`). Each tier is cumulative and includes all lower tiers, so installing multiple bundles is redundant and will cause installation conflicts.
 
@@ -55,8 +61,8 @@ npx skills add extragraj/stackshift-workflow-skills -a claude-code
 
 | Skill Package | Protocols Included | Use Case |
 |---------------|-------------------|----------|
-| `stackshift-protocols-required` | 4 required protocols only | Minimal installation |
-| `stackshift-protocols-recommended` | 4 required + 5 recommended (default) | **Recommended for most users** |
+| `stackshift-protocols-required` | 4 required protocols | Minimal installation |
+| `stackshift-protocols-recommended` | 4 required + 6 recommended (default) | **Recommended for most users** |
 | `stackshift-protocols-full` | All tiers (required + recommended + optional) | Complete protocol coverage |
 
 #### Fixing Multi-Tier Installations
@@ -84,9 +90,6 @@ npx @extragraj/stackshift-skills init --no-interactive
 
 # Non-interactive with specific options
 npx @extragraj/stackshift-skills init --tier full --scope project --platform agents,claude --no-interactive
-
-# Run locally from this repository
-npx . init
 ```
 
 **Available Flags:**
@@ -95,7 +98,7 @@ npx . init
 |------|--------|---------|-------------|
 | `--tier` | `required`, `recommended`, `full` | `recommended` | Protocol tier to install |
 | `--scope` | `project`, `global` | `project` | Install location |
-| `--platform` | `agents`, `claude`, `codex`, or comma-separated | `agents` | Platform(s) to install to |
+| `--platform` | `agents`, `claude`, or comma-separated | `agents` | Platform(s) to install to |
 | `--no-interactive` | (flag) | `false` | Skip prompts, use flags + defaults |
 | `--help` | (flag) | - | Show help text |
 
@@ -122,7 +125,7 @@ This prevents accidental tier replacement and ensures the change is intentional.
 
 #### Multi-Platform Tier Detection
 
-If different tiers are installed across platforms (e.g., `required` in `.agents/` and `full` in `.claude/` or `.codex/`), the CLI warns:
+If different tiers are installed across platforms (e.g., `required` in `.agents/` and `full` in `.claude/`), the CLI warns:
 
 ```
 ┌  Warning
@@ -148,62 +151,15 @@ This scans for multiple protocol bundles and helps you keep only one.
 
 ---
 
-### Option C — Codex CLI (OpenRouter)
-
-Install StackShift for use with Codex CLI powered by OpenRouter.
-
-#### Prerequisites
-
-Configure Codex CLI with OpenRouter by editing `~/.codex/config.toml`:
-
-```toml
-model_provider = "openrouter"
-model = "openai/gpt-5.3-codex"
-model_reasoning_effort = "high"
-
-[model_providers.openrouter]
-name = "openrouter"
-base_url = "https://openrouter.ai/api/v1"
-env_key = "OPENROUTER_API_KEY"
-```
-
-Export your API key:
-```bash
-export OPENROUTER_API_KEY="sk-or-..."
-```
-
-#### Install StackShift skills for Codex
-
-```bash
-# Non-interactive (recommended)
-npx @extragraj/stackshift-skills init --platform codex --no-interactive
-
-# Interactive
-npx @extragraj/stackshift-skills init --platform codex
-
-# Install to both Claude Code and Codex CLI
-npx @extragraj/stackshift-skills init --platform claude,codex --no-interactive
-```
-
-This installs skills to `.codex/skills/` and writes (or updates) `AGENTS.md` at the project root. When you run `codex` in the project, it reads `AGENTS.md` and discovers the StackShift skill automatically.
-
-#### Verify
-
-After installation:
-- `.codex/skills/stackshift-core/` exists
-- `AGENTS.md` contains a `## StackShift Skill` section
-
----
-
 ### Installation Process
 
-After installing via Option A, B, or C:
+After installing via Option A or B:
 
 1. **Skills are installed** to chosen location(s) and platform(s):
    - `stackshift-core` (always included - workflow, protocols, references)
    - One protocol tier bundle (required, recommended, or full)
    - **Option A:** To `.agents/skills/` or `.claude/skills/` based on `-a` flag
-   - **Option B/C:** To selected platform(s) from interactive prompt or `--platform` flag (including `.codex/skills/`)
+   - **Option B:** To selected platform(s) from interactive prompt or `--platform` flag
 
 2. **Physical cleanup** (Option B only):
    - Old protocol bundle folders are automatically removed
@@ -223,15 +179,14 @@ After installing via Option A, B, or C:
 
 #### Installation Method Comparison
 
-| Feature | Option A (`npx skills add`) | Option B (interactive CLI) | Option C (Codex CLI) |
-|---------|----------------------------|---------------------------|----------------------|
-| **Tier enforcement** | Manual | Automatic | Automatic |
-| **Core installation** | Manual | Automatic | Automatic |
-| **Physical cleanup** | No | Yes | Yes |
-| **Multi-tier prevention** | No | Yes | Yes |
-| **Automation support** | Limited | Full (`--no-interactive`) | Full (`--no-interactive`) |
-| **AGENTS.md generation** | No | No | Yes (automatic) |
-| **Platforms supported** | agents, claude | agents, claude, codex | codex (or combined) |
+| Feature | Option A (`npx skills add`) | Option B (interactive CLI) |
+|---------|----------------------------|---------------------------|
+| **Tier enforcement** | Manual | Automatic |
+| **Core installation** | Manual | Automatic |
+| **Physical cleanup** | No | Yes |
+| **Multi-tier prevention** | No | Yes |
+| **Automation support** | Limited | Full (`--no-interactive`) |
+| **Platforms supported** | `agents`, `claude` | `agents`, `claude` |
 
 **Note:** The `ui-forge` companion skill must be installed independently; StackShift bootstrap will detect and integrate it automatically when present.
 
@@ -282,7 +237,7 @@ A tiered protocol system codifies team conventions and enables individual loadin
 
 ## Protocols
 
-All 11 registered protocols, organized by tier:
+All 15 registered protocols, organized by tier:
 
 | Protocol | Tier | Applies to | Description |
 |----------|------|-----------|-------------|
@@ -296,13 +251,25 @@ All 11 registered protocols, organized by tier:
 | Array Layout | recommended | Step 1 | `grid` for image arrays, `tags` for string arrays, `collapsible` for nav arrays. |
 | Section Directory Layout | recommended | Step 2 | `initialValue/` with placeholder copy and `images/` with variant thumbnails. |
 | Accessibility | recommended | Step 4 | WCAG 2.1 AA enforcement via UI Forge's `SIGNAL_A11Y`. Writes `a11yRequired: true` to bootstrap marker. |
+| Paired-Mode Contract | recommended | Cross-cutting | Canonical reference for the StackShift ↔ UI Forge handshake: skill-root resolution, marker fields, `_paired` mirror block, flag refusal matrix, modifier composition, contract version handoff. |
 | Brand | optional | Step 4 | Registers a project brand document so UI Forge applies voice, palette, typography, and imagery rules via `SIGNAL_BRAND`. |
+| Claude Design Handoff | optional | Step 4 | Activates UI Forge's `+CLAUDE_DESIGN` modifier and `--handoff <url>` flag. Permits a Claude Design URL as a layout source (mutually exclusive with HTML/TSX refs). Bootstrap can seed Claude Design via `/forge-export-design`. |
+| Auto-Verify Hook | optional | Step 4 | Wires UI Forge's `verify.js` single-arg mode as a Claude Code `PostToolUse` hook. Every `.tsx` write triggers automatic contract validation. Claude Code only — no-op on other agents. |
+| Modal & Sheet | optional | Steps 2, 4, 5 | Standalone modal documents linked via `conditionalLink`. Clicking a `linkModal` link opens a `@stackshift-ui/sheet` or `@stackshift-ui/dialog` overlay. Split into one-time setup and per-variant workflow with UI Forge delegation. |
 
 ---
 
 ## Bootstrap
 
 Bootstrap executes once on first AI invocation when `.stackshift/installed.json` is absent in the project root. It materializes selected protocols and creates project infrastructure (_registry.json, _template/, references/) to enable protocol customization and extension.
+
+When UI Forge is detected, bootstrap also wires up the StackShift ↔ UI Forge handshake:
+
+- **Step 6c** — resolves `${UI_FORGE_SKILL_DIR}` (prefers UI Forge's `scripts/detect.sh` ≥ 0.1.9; falls back to a 7-entry path lookup), runs `scan.js` if `design/design-arch.json` is missing, and surfaces UI Forge 0.1.9C's scan-fallback banner. Optionally appends `--schema-v4` for dark-mode token extraction.
+- **Step 6g** (conditional) — when the `claude-design-handoff` protocol is materialized, offers to run `/forge-export-design` to seed Claude Design with project tokens.
+- **Step 6h** — once `design/design-arch.json` exists, writes a `_paired` mirror block so UI Forge can read StackShift markers from one surface. `.stackshift/installed.json` remains the canonical write target.
+- **Step 7b** (conditional) — when the `auto-verify-hook` protocol is materialized and Claude Code runtime is detected, idempotently merges a `PostToolUse` hook entry into `.claude/settings.json`.
+- **Step 8** — `.forgeignore` defaults include `design/.handoff-cache/` and `design/claude-design-bundle/` so UI Forge never walks regeneratable artifacts.
 
 ### Bootstrap Execution Timing
 
@@ -375,10 +342,13 @@ After bootstrap with "Recommended" mode:
 ```
 your-project/
 ├── .stackshift/
-│   └── installed.json          # Bootstrap marker (mode, protocols, timestamp, a11yRequired)
-├── .forgeignore                # Sanity + Next.js scan exclusions (written by bootstrap)
+│   └── installed.json          # Bootstrap marker (mode, protocols, timestamp, a11yRequired, uiForgeIntegration)
+├── .forgeignore                # Sanity + Next.js scan exclusions (incl. design/.handoff-cache/, design/claude-design-bundle/)
+├── .claude/
+│   └── settings.json           # PostToolUse hook entry (only when auto-verify-hook protocol is active)
 │
 ├── design/
+│   ├── design-arch.json        # UI Forge-owned; StackShift writes designStandards.* + optional _paired mirror block
 │   └── standards/
 │       └── stackshift-ui.md   # StackShift UI conventions for UI Forge
 │
@@ -395,11 +365,14 @@ your-project/
     │   ├── preview-conventions.md
     │   ├── array-layout.md
     │   ├── section-directory-layout.md
-    │   └── accessibility.md
+    │   ├── accessibility.md
+    │   └── paired-mode-contract.md
     │
     └── references/             # Custom reference lookups (empty initially)
         └── README.md
 ```
+
+**Optional protocols** (`brand`, `claude-design-handoff`, `auto-verify-hook`) materialize to `/docs/protocol/` only when the `Full` or `Interactive` install mode selects them.
 
 ### Adding Custom Protocols
 
@@ -510,9 +483,9 @@ stackshift-workflow-skills/
 │   │   ├── SKILL.md              # Main router: workflow table, lookup table, hard rules
 │   │   ├── _registry.schema.json # Shared JSON schema for protocol/seed registries
 │   │   ├── workflow/             # 5 step files and checklist (loaded on demand)
-│   │   ├── protocols/            # 9 protocol files and _registry.json
-│   │   ├── references/           # Lookup tables (field factories, GROQ, types, versions)
-│   │   ├── seeds/                # Seeding strategies and _registry.json (empty in v0.1.8)
+│   │   ├── protocols/            # 15 protocols (14 single-file + 1 dir) and _registry.json
+│   │   ├── references/           # Lookup tables (field factories, GROQ, types, versions, claude-design-roundtrip)
+│   │   ├── seeds/                # Seeding strategies and _registry.json (empty in v0.1.9)
 │   │   └── bootstrap/            # First-run install flow and modes
 │   │
 │   ├── stackshift-protocols-required/
@@ -557,6 +530,23 @@ During component variant creation, StackShift delegates to `ui-forge` once schem
 
 **Interface Boundary:** StackShift never authors component code. `ui-forge` never modifies schema or wiring. The props interface defines the boundary.
 
+### Shared State
+
+The two skills coordinate through three files (full ownership matrix in `protocols/paired-mode-contract.md`):
+
+| File | Owner | StackShift writes | UI Forge writes |
+|------|-------|-------------------|-----------------|
+| `.stackshift/installed.json` | StackShift | `a11yRequired`, `protocols`, `uiForgeIntegration` | reads only |
+| `design/design-arch.json` | UI Forge | `designStandards.*` pointers, optional `_paired` mirror | tokens, patterns, components |
+| `.claude/settings.json` | shared | `PostToolUse` hook entry (when `auto-verify-hook` active) | none |
+
+The `paired-mode-contract` protocol (recommended tier) is the single canonical reference for skill-root resolution, marker fields, the flag refusal matrix (`--creative` / `--diff` / `--preview`), modifier composition, and the contract version handoff.
+
+### Optional Paired Protocols
+
+- **`claude-design-handoff`** — enables `/forge --handoff <url>` to use a Claude Design URL as a layout source. Round-trip workflow documented in `references/claude-design-roundtrip.md`.
+- **`auto-verify-hook`** — wires UI Forge's `verify.js` as a Claude Code `PostToolUse` hook so every `.tsx` write auto-validates against its contract.
+
 ---
 
 ## Version Compatibility
@@ -568,7 +558,7 @@ During component variant creation, StackShift delegates to `ui-forge` once schem
 | TypeScript | strict mode |
 | `@webriq-pagebuilder/sanity-plugin-schema-default` | extend, do not replace |
 | `@stackshift-ui/*` | component library, referenced in `index.tsx` only |
-| `ui-forge` (companion skill) | ≥0.1.8 for full feature set (see `references/versions.md`) |
+| `ui-forge` (companion skill) | ≥0.1.9 for `paired-mode-contract`, `claude-design-handoff`, `auto-verify-hook`; ≥0.1.8 baseline (see `references/versions.md`) |
 
 For complete compatibility matrix including peer dependencies, see `references/versions.md` in the skill.
 

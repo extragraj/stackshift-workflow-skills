@@ -25,13 +25,12 @@ Before doing any workflow step:
 
 ### 1. Validate installation integrity
 
-Check for multi-tier installations by listing all folders in `.agents/skills/`, `.claude/skills/`, and `.codex/skills/` (if they exist):
+Check for multi-tier installations by listing all folders in `.agents/skills/` and `.claude/skills/` (if they exist):
 
 ```bash
 # Find all protocol bundle folders
 ls .agents/skills/ 2>/dev/null | grep "^stackshift-protocols-"
 ls .claude/skills/ 2>/dev/null | grep "^stackshift-protocols-"
-ls .codex/skills/  2>/dev/null | grep "^stackshift-protocols-"
 ```
 
 Count the unique protocol bundle folder names found.
@@ -50,7 +49,7 @@ Each tier already includes all lower tiers, so having multiple is redundant and 
 To fix this issue:
 1. Run: npx @extragraj/stackshift-skills repair
    OR
-2. Manually delete all but one protocol bundle folder from .agents/skills/, .claude/skills/, or .codex/skills/ (whichever contains your install)
+2. Manually delete all but one protocol bundle folder from .agents/skills/ or .claude/skills/ (whichever contains your install)
 3. Run this skill again
 
 Which tier do you want to keep?
@@ -68,8 +67,8 @@ stackshift-core is required for StackShift sections.
 It provides the workflow, protocols, and references system.
 
 To fix:
-- Claude Code / General: npx @extragraj/stackshift-skills init
-- Codex CLI: npx @extragraj/stackshift-skills init --platform codex --no-interactive
+- Claude Code: npx @extragraj/stackshift-skills init --platform claude
+- Universal agents: npx @extragraj/stackshift-skills init --platform agents
 ```
 
 **Stop workflow.** Wait for user to install.
@@ -137,6 +136,8 @@ Do not load these preemptively. Load only when the current workflow step or erro
 | Existing TypeScript interfaces to reuse | `references/types-catalog.md` |
 | Reusable GROQ fragment constants | `references/groq-fragments.md` |
 | Version constraints (Sanity v3.17, Next 14, etc.) | `references/versions.md` |
+| Claude Design round-trip workflow | `references/claude-design-roundtrip.md` |
+| StackShift ↔ UI Forge handshake (markers, flag refusals, contract handoff) | `protocols/paired-mode-contract.md` |
 | A protocol (required / recommended / optional convention) | See "Protocol Discovery" below |
 | A custom reference lookup | `/docs/references/<name>.md` (project), else `references/<name>.md` (skill) |
 
@@ -217,7 +218,9 @@ Add custom reference lookups in `/docs/references/<name>.md` for project-specifi
 
 ## 5. Companion Skill Integration
 
-StackShift delegates component body generation to `ui-forge` at Step 4 (see `workflow/4-variants.md`). The two skills share protocol awareness through the `designStandards` field in `design/design-arch.json`: during bootstrap, StackShift writes pointers to `variant-router` (and any future component-rendering protocols) into this field so that `ui-forge` loads them into its generation context. This is the sole bridge between StackShift's `/docs/protocol/` registry and `ui-forge`'s `design-arch.json`-based standards system.
+StackShift delegates component body generation to `ui-forge` at Step 4 (see `workflow/4-variants.md`). The two skills share protocol awareness through the `designStandards` field in `design/design-arch.json`: during bootstrap, StackShift writes pointers to `variant-router` (and any future component-rendering protocols) into this field so that `ui-forge` loads them into its generation context.
+
+The full handshake — skill-root resolution, marker fields (`.stackshift/installed.json` vs `design/design-arch.json`), the optional `_paired` mirror block, the flag refusal matrix, modifier composition, and the contract version handoff — is documented canonically in `protocols/paired-mode-contract.md`. Other paired protocols (`accessibility`, `brand`, `claude-design-handoff`, `auto-verify-hook`) link to that document instead of restating its rules.
 
 ---
 

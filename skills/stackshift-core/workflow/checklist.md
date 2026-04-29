@@ -72,6 +72,30 @@ Skipping any of these will not break the build but will degrade the Sanity Studi
 - [ ] Conditional rendering uses ternary with `null` (not `&&` short-circuit)
 - [ ] Default prop values in destructuring, not inline in JSX
 - [ ] Helper components placed below all exports
+- [ ] FORGE NOTES contains `// @contract <path>` directive on line 3 (UI Forge ≥ 0.1.9)
+- [ ] `design/design-arch.json` is no older than 7 days (UI Forge warns at 8+; re-run `/forge-scan` if stale)
+
+---
+
+## Protocol-conditional — fires only when the protocol is in the materialized set
+
+### `accessibility` active
+- [ ] FORGE NOTES contains an `A11Y` sub-block on every variant generated this session
+- [ ] `.stackshift/installed.json` has `"a11yRequired": true`
+
+### `brand` active
+- [ ] FORGE NOTES contains a `BRAND` sub-block on every variant generated this session
+- [ ] `design/design-arch.json` `designStandards.brand` points to an existing file
+- [ ] `design/standards/brand.md` is non-empty (not the starter template)
+
+### `claude-design-handoff` active and used this session
+- [ ] FORGE NOTES contains a `CLAUDE_DESIGN` sub-block on every handoff-sourced variant
+- [ ] `design/.handoff-cache/` and `design/claude-design-bundle/` are listed in `.forgeignore`
+- [ ] No handoff-generated CSS classes appear inline in TSX (every token resolves to `design-arch.json`)
+
+### `auto-verify-hook` active
+- [ ] `.claude/settings.json` contains the StackShift PostToolUse hook entry
+- [ ] Hook fired without errors on every variant write this session (check Claude Code logs or terminal output)
 
 ---
 

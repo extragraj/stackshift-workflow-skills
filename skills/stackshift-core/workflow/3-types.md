@@ -45,6 +45,8 @@ export interface MySectionProps {
 
 This tag is parsed by UI Forge and included in the CONTRACT header of generated output, creating an auditable record of which contract version a variant was generated against. The current contract version is `1.0.0` — see `references/versions.md` for when and how to bump it.
 
+The `@contract-version` JSDoc tag pairs with a **`// @contract <path>` directive** that UI Forge writes on line 3 of FORGE NOTES in every generated variant. The directive points back at the file holding this interface; the JSDoc tag tracks version drift. When the `auto-verify-hook` protocol is installed, UI Forge's `verify.js` reads the directive to resolve the contract path automatically — no manual contract argument required. See `protocols/paired-mode-contract.md` for the full handshake.
+
 Rules:
 - **No `any`.** Use `unknown` + narrowing if the shape is dynamic.
 - All fields optional (`?`) — Sanity data can always be null/undefined.

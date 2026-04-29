@@ -25,4 +25,8 @@ Protocol files live in `stackshift-core/protocols/`. Load on demand — never al
 | Array Layout | recommended | `protocols/array-layout.md` | Any array field (Step 1) |
 | Section Directory Layout | recommended | `protocols/section-directory-layout.md` | After finalizing section schema (Step 2) |
 | Accessibility | recommended | `protocols/accessibility.md` | Activates WCAG 2.1 AA enforcement in UI Forge (Step 4) |
+| Paired-Mode Contract | recommended | `protocols/paired-mode-contract.md` | Reviewing or changing the StackShift ↔ UI Forge handshake |
 | Brand | optional | `protocols/brand.md` | Registers a project brand document for UI Forge's brand signal (Step 4) |
+| Claude Design Handoff | optional | `protocols/claude-design-handoff.md` | Allowing `--handoff <url>` as a Step 4 layout source (UI Forge ≥ 0.1.9) |
+| Auto-Verify Hook | optional | `protocols/auto-verify-hook.md` | Installs PostToolUse hook that runs UI Forge's verify.js on every variant write (UI Forge ≥ 0.1.9) |
+| Modal & Sheet | optional | `protocols/modal-sheet/` | Standalone modal documents linked via conditionalLink; opens as @stackshift-ui/sheet or @stackshift-ui/dialog overlay. One-time setup + per-variant workflow. |

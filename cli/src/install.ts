@@ -9,7 +9,7 @@
  *   Scope: Project-scope installs only (not global)
  *
  * - skills-lock.json: Installation record per platform
- *   Location: .agents/skills-lock.json or .claude/skills-lock.json
+ *   Location: .agents/skills-lock.json or .claude/skills-lock.json (one per platform)
  *   Purpose: Tracks which skills are physically installed on each platform
  *   Updated: On every install to each platform
  *   Used by: CLI for detecting existing installations
@@ -38,9 +38,7 @@ import { parseFlags, validateFlags, hasRequiredFlags, showHelp } from './flags.j
 import type { Platform, InstallChoices } from './prompts.js';
 
 function resolveTargetDir(scope: 'project' | 'global', platform: Platform): string {
-  const baseDir = platform === 'agents' ? '.agents'
-                : platform === 'claude'  ? '.claude'
-                : '.codex';
+  const baseDir = platform === 'agents' ? '.agents' : '.claude';
   if (scope === 'global') return join(homedir(), baseDir, 'skills');
   return join(process.cwd(), baseDir, 'skills');
 }
@@ -81,7 +79,7 @@ function reportCrossPlatformSync(
   if (extraPlatforms.length === 0) return;
 
   const labels = extraPlatforms
-    .map((p) => p === 'agents' ? '.agents/' : p === 'claude' ? '.claude/' : '.codex/')
+    .map((p) => p === 'agents' ? '.agents/' : '.claude/')
     .join(', ');
 
   note(
@@ -101,10 +99,8 @@ interface LockFile {
   skills: LockEntry[];
 }
 
-function readLockFile(scope: 'project' | 'global', platform: 'agents' | 'claude' | 'codex'): LockFile | null {
-  const baseDir = platform === 'agents' ? '.agents'
-                : platform === 'claude'  ? '.claude'
-                : '.codex';
+function readLockFile(scope: 'project' | 'global', platform: 'agents' | 'claude'): LockFile | null {
+  const baseDir = platform === 'agents' ? '.agents' : '.claude';
   const lockPath = scope === 'global'
     ? join(homedir(), baseDir, 'skills-lock.json')
     : join(process.cwd(), baseDir, 'skills-lock.json');
@@ -156,7 +152,7 @@ export async function install(): Promise<void> {
 
     // Format output
     const platformLabels = choices.platforms.map(p => {
-      const baseDir = p === 'agents' ? '.agents' : p === 'claude' ? '.claude' : '.codex';
+      const baseDir = p === 'agents' ? '.agents' : '.claude';
       return choices.scope === 'global' ? `~/${baseDir}/skills/` : `${baseDir}/skills/`;
     });
 
@@ -166,14 +162,9 @@ export async function install(): Promise<void> {
       : `Installed ${skillNames.length} skill(s) to ${platformLabels.length} platforms:\n` +
         platformLabels.map(label => `  → ${label}`).join('\n');
 
-    const agentsMdNote = choices.platforms.includes('codex')
-      ? '\n  AGENTS.md ← StackShift skill entry written'
-      : '';
-
     outro(
       summary + '\n' +
-        skillNames.map((name) => `  ✓ ${name}`).join('\n') +
-        agentsMdNote,
+        skillNames.map((name) => `  ✓ ${name}`).join('\n'),
     );
     return;
   }
@@ -184,19 +175,16 @@ export async function install(): Promise<void> {
   // Check for existing protocol bundle across all platforms
   const agentsLock = readLockFile('project', 'agents');
   const claudeLock = readLockFile('project', 'claude');
-  const codexLock  = readLockFile('project', 'codex');
 
   const agentsBundle = agentsLock?.skills.find(s => s.name.startsWith('stackshift-protocols-'));
   const claudeBundle = claudeLock?.skills.find(s => s.name.startsWith('stackshift-protocols-'));
-  const codexBundle  = codexLock?.skills.find(s =>  s.name.startsWith('stackshift-protocols-'));
 
-  const existingProtocolBundle = agentsBundle || claudeBundle || codexBundle;
+  const existingProtocolBundle = agentsBundle || claudeBundle;
 
   // Warn if different tiers detected across platforms
   const detectedBundles = [
     agentsBundle && { label: '.agents', name: agentsBundle.name },
     claudeBundle && { label: '.claude', name: claudeBundle.name },
-    codexBundle  && { label: '.codex',  name: codexBundle.name  },
   ].filter(Boolean) as Array<{ label: string; name: string }>;
 
   const uniqueBundleNames = new Set(detectedBundles.map(b => b.name));
@@ -233,7 +221,7 @@ export async function install(): Promise<void> {
 
   // Group results by platform for cleaner output
   const platformLabels = choices.platforms.map(p => {
-    const baseDir = p === 'agents' ? '.agents' : p === 'claude' ? '.claude' : '.codex';
+    const baseDir = p === 'agents' ? '.agents' : '.claude';
     return choices.scope === 'global' ? `~/${baseDir}/skills/` : `${baseDir}/skills/`;
   });
 
@@ -243,13 +231,8 @@ export async function install(): Promise<void> {
     : `Installed ${skillNames.length} skill(s) to ${platformLabels.length} platforms:\n` +
       platformLabels.map(label => `  → ${label}`).join('\n');
 
-  const agentsMdNote = choices.platforms.includes('codex')
-    ? '\n  AGENTS.md ← StackShift skill entry written'
-    : '';
-
   outro(
     summary + '\n' +
-      skillNames.map((name) => `  ✓ ${name}`).join('\n') +
-      agentsMdNote,
+      skillNames.map((name) => `  ✓ ${name}`).join('\n'),
   );
 }

@@ -4,7 +4,7 @@ import type { ProtocolEntry, SkillEntry } from './registry.js';
 export type ProtocolTier = 'required' | 'recommended' | 'full' | 'custom';
 export type SeedChoice = 'none' | string;
 export type ScopeChoice = 'project' | 'global';
-export type Platform = 'agents' | 'claude' | 'codex';
+export type Platform = 'agents' | 'claude';
 
 export interface InstallChoices {
   protocolTier: ProtocolTier;
@@ -112,9 +112,8 @@ export async function runPrompts(
   const platformChoices = await multiselect<Platform>({
     message: 'Select platform(s):',
     options: [
-      { value: 'agents', label: 'General (.agents/)', hint: 'recommended' },
+      { value: 'agents', label: 'Universal agents (.agents/)', hint: 'recommended' },
       { value: 'claude', label: 'Claude Code (.claude/)' },
-      { value: 'codex',  label: 'Codex CLI (.codex/)' },
     ],
     initialValues: ['agents'],
     required: true,

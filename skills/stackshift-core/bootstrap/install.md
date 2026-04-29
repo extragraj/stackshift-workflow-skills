@@ -32,7 +32,7 @@ Each entry carries a `tier` (`required` / `recommended` / `optional`), a `title`
 
 ## Step 3 — Prompt the user for install mode
 
-Present the five modes using the `ask_user_input_v0` tool if it is available in your runtime (Claude Code). On all other runtimes — including Codex CLI — ask in plain conversation and wait for the user's typed reply. The interaction is identical; only the mechanism differs. See `bootstrap/modes.md` for the authoritative definitions.
+Present the five modes using the `ask_user_input_v0` tool if it is available in your runtime (Claude Code). On all other runtimes, ask in plain conversation and wait for the user's typed reply. The interaction is identical; only the mechanism differs. See `bootstrap/modes.md` for the authoritative definitions.
 
 > **Quick-reference summary to show the user:**
 >
@@ -208,15 +208,19 @@ Check for `design/design-arch.json` at the project root:
 
 ### 6c — Detect and integrate `ui-forge`
 
-Resolve the `ui-forge` skill directory using this lookup order (first match wins):
+**Preferred (UI Forge ≥ 0.1.9):** invoke `sh <candidate>/scripts/detect.sh` against each candidate path below. The first that succeeds prints the absolute skill root to stdout — capture as `UI_FORGE_SKILL_DIR`. UI Forge's `detect.sh` is the upstream source of truth for the search order.
+
+**Fallback (UI Forge < 0.1.9 or `detect.sh` missing):** use this lookup order (first match wins):
 
 1. Environment variable `UI_FORGE_SKILL_DIR` if set
 2. `.claude/skills/ui-forge/` (project-scope Claude Code install)
 3. `.agents/skills/ui-forge/` (project-scope agents install)
-4. `.codex/skills/ui-forge/` (project-scope Codex CLI install)
+4. `.codex/skills/ui-forge/` (legacy — pre-0.1.9A Codex CLI install)
 5. `~/.claude/skills/ui-forge/` (global Claude Code install)
 6. `~/.agents/skills/ui-forge/` (global agents install)
-7. `~/.codex/skills/ui-forge/` (global Codex CLI install)
+7. `~/.codex/skills/ui-forge/` (legacy — pre-0.1.9A global Codex CLI install)
+
+This list is duplicated in `protocols/paired-mode-contract.md` and `workflow/4-variants.md` — keep all three in sync if it changes.
 
 **If `ui-forge` is installed and `design/design-arch.json` is absent:**
 
@@ -229,9 +233,15 @@ Prompt the user:
 
 On confirmation:
 
-1. Execute `node ${UI_FORGE_SKILL_DIR}/scripts/scan.js`
-2. Apply the `pendingDesignArchBridge` payload from Step 6b to the newly-created `design/design-arch.json`
-3. Remove the `pendingDesignArchBridge` key from `.stackshift/installed.json`
+1. If the `accessibility` protocol or any custom dark-mode protocol is in the materialized set, prompt:
+   ```
+   ? Extract dark-mode Tailwind tokens during scan? (y/N)
+     Adds tailwind.darkColorTokens to design-arch.json via ui-forge --schema-v4.
+   ```
+   Default no. Record the choice in `.stackshift/installed.json` under `uiForgeIntegration.schemaV4`.
+2. Execute `node ${UI_FORGE_SKILL_DIR}/scripts/scan.js` (append `--schema-v4` if the user opted in above). **Capture stderr.** UI Forge ≥ 0.1.9 emits a `═`-bordered banner if AI synthesis falls back to static analysis — preserve the captured banner for inclusion in the Step 9 summary so the user knows their `design-arch.json` `patterns.*` fields may be coarse.
+3. Apply the `pendingDesignArchBridge` payload from Step 6b to the newly-created `design/design-arch.json`.
+4. Remove the `pendingDesignArchBridge` key from `.stackshift/installed.json`.
 
 On decline or if `ui-forge` is not installed:
 
@@ -353,6 +363,49 @@ Write a starter brand document:
 [Describe photography style, illustration tone, icon set restrictions]
 ```
 
+### 6g — Export design bundle for Claude Design (conditional)
+
+Run only when the `claude-design-handoff` protocol is in the materialized set **and** `design/design-arch.json` exists (either pre-existing or just created in Step 6c).
+
+Prompt the user:
+
+```
+? Export design bundle for Claude Design now? (Y/n)
+  Runs ui-forge's export-design.js. Writes design/claude-design-bundle/.
+  This pre-seeds Claude Design with your project tokens before any handoff is created.
+```
+
+**On confirmation:** execute the export.
+
+- Claude Code runtime (preferred): run `/forge-export-design` (slash command). Record success.
+- Other runtimes: run `node ${UI_FORGE_SKILL_DIR}/scripts/export-design.js`. Record success.
+
+**On decline:** record `bundleExported: false` under `uiForgeIntegration` in `.stackshift/installed.json`. The user can run `/forge-export-design` later — see `references/claude-design-roundtrip.md`.
+
+The export is idempotent — re-running overwrites `design/claude-design-bundle/` cleanly.
+
+### 6h — Mirror paired-mode markers into `design-arch.json`
+
+Once `design/design-arch.json` exists (either pre-existing or just created), write a `_paired` block mirroring the StackShift markers UI Forge cares about. This is read-optimization for UI Forge — `.stackshift/installed.json` remains the canonical write target for these fields. Older UI Forge versions ignore unknown top-level keys, so the block is forward-compatible.
+
+```json
+{
+  "designStandards": { ... },
+  "_paired": {
+    "stackshiftVersion": "<read from skill.version>",
+    "a11yRequired": <true|false>,
+    "contractVersion": "1.0.0",
+    "protocols": ["<id-1>", "<id-2>", ...]
+  }
+}
+```
+
+Write `a11yRequired` only when the `accessibility` protocol is in the materialized set. Set `protocols` to the materialized set.
+
+If `design/design-arch.json` does not yet exist, defer this to the next bootstrap pass — the `pendingDesignArchBridge` payload already in `.stackshift/installed.json` covers the basic bridge; the `_paired` block is added when the arch file appears.
+
+See `protocols/paired-mode-contract.md` for the full handshake.
+
 ---
 
 ## Step 7 — Write the install marker
@@ -409,8 +462,14 @@ The file can eventually hold additional fields written by the AI agent at bootst
     "installed": false,
     "scanCompleted": false,
     "scanTimestamp": "2026-04-14T00:00:00Z",
-    "uiForgeVersion": "0.2.0",
-    "skillDir": "/abs/path/to/ui-forge"
+    "uiForgeVersion": "0.1.9",
+    "skillDir": "/abs/path/to/ui-forge",
+    "schemaV4": false,
+    "bundleExported": false,
+    "postToolUseHook": {
+      "installed": false,
+      "skillDir": "/abs/path/to/ui-forge"
+    }
   }
 }
 ```
@@ -425,7 +484,10 @@ The file can eventually hold additional fields written by the AI agent at bootst
 | `protocols` | CLI + bootstrap | Every install / repair |
 | `a11yRequired` | AI agent (bootstrap Step 7) | When `accessibility` protocol is materialized |
 | `pendingDesignArchBridge` | AI agent (bootstrap Step 6b) | When `design/design-arch.json` is absent |
-| `uiForgeIntegration` | AI agent (bootstrap Step 6d) | After `ui-forge` detection |
+| `uiForgeIntegration` | AI agent (bootstrap Step 6d / 6g / 7b) | After `ui-forge` detection; updated by Step 6g (bundle export), Step 7b (PostToolUse hook) |
+| `uiForgeIntegration.schemaV4` | AI agent (bootstrap Step 6c) | When user opts into dark-token extraction |
+| `uiForgeIntegration.bundleExported` | AI agent (bootstrap Step 6g) | When `claude-design-handoff` protocol is materialized |
+| `uiForgeIntegration.postToolUseHook` | AI agent (bootstrap Step 7b) | When `auto-verify-hook` protocol is materialized |
 
 Fields added by the AI agent are optional and only appear when relevant. The CLI writes only the first four fields and never removes agent-added fields during re-install.
 
@@ -433,6 +495,59 @@ This file is the source of truth for what has been installed. Future invocations
 
 - Skip bootstrap entirely (it exists → we're done).
 - Detect registry additions that could be offered to the user with a non-blocking "new protocols available" notice (optional future feature).
+
+---
+
+## Step 7b — Install PostToolUse hook (conditional)
+
+Run only when the `auto-verify-hook` protocol is in the materialized set.
+
+Detect Claude Code runtime by presence of `.claude/` directory or `$CLAUDE_PLUGIN_ROOT` env var. The hook is Claude Code-specific — for other agents, skip this step and inform the user that the hook is a no-op outside Claude Code.
+
+Read `.claude/settings.json` if it exists; otherwise create it with `{}`. Merge in the StackShift hook entry idempotently:
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${UI_FORGE_SKILL_DIR}/scripts/verify.js \"$CLAUDE_FILE_PATH\""
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Substitute `${UI_FORGE_SKILL_DIR}` with the absolute path resolved in Step 6c.
+
+**Idempotency rules:**
+
+- If a `PostToolUse` matcher already includes `Write|Edit` with a `verify.js` command pointing at the resolved skill dir, skip — entry already present.
+- If a different `PostToolUse` matcher exists with a `verify.js` command at a stale path, update only the `command` field.
+- If unrelated `PostToolUse` entries exist (other matchers, other commands), preserve them and append the StackShift entry alongside.
+- Never overwrite `.claude/settings.json` wholesale — always merge.
+
+Record the hook installation result in `.stackshift/installed.json` under `uiForgeIntegration.postToolUseHook`:
+
+```json
+{
+  "uiForgeIntegration": {
+    ...,
+    "postToolUseHook": {
+      "installed": true,
+      "skillDir": "<resolved path>"
+    }
+  }
+}
+```
+
+See `protocols/auto-verify-hook.md` for runtime behavior.
 
 ---
 
@@ -451,7 +566,13 @@ dist/
 build/
 out/
 coverage/
+
+# UI Forge — Claude Design integration (regeneratable artifacts)
+design/.handoff-cache/
+design/claude-design-bundle/
 ```
+
+The two Claude Design entries cover the cache produced by `--handoff` and the export produced by `/forge-export-design`. Both are regenerated on demand and should not be committed — adding them here also keeps UI Forge's `scan.js` from descending into them.
 
 This prevents UI Forge's `scan.js` from walking build artifacts, Sanity Studio internals, and output directories during project scanning. User edits to this file always take precedence — UI Forge's ignore-file resolution gives `.forgeignore` the highest project-level priority.
 
@@ -465,18 +586,26 @@ Print a summary:
 
 ```
 Bootstrapped StackShift skill (mode: recommended)
-  /docs/protocol/           ← [N] protocols ([r] required, [rec] recommended)
+  /docs/protocol/                ← [N] protocols ([r] required, [rec] recommended)
   /docs/protocol/_registry.json  ← Project protocol registry (empty)
-  /docs/protocol/_template/ ← Complex protocol template
-  /docs/references/         ← Custom reference lookups (empty)
-  design/standards/         ← stackshift-ui.md [+ brand.md if brand protocol]
-  .forgeignore              ← [written / already exists]
-  .stackshift/installed.json written
-  a11yRequired: [true / not set]
+  /docs/protocol/_template/      ← Complex protocol template
+  /docs/references/              ← Custom reference lookups (empty)
+  design/standards/              ← stackshift-ui.md [+ brand.md if brand protocol]
+  design/claude-design-bundle/   ← [exported / pending / N/A]
+  .forgeignore                   ← [written / already exists]
+  .claude/settings.json          ← [PostToolUse hook installed / N/A]
+  .stackshift/installed.json     ← written
+  a11yRequired:                  ← [true / not set]
+  schemaV4 (dark tokens):        ← [enabled / disabled / N/A]
 
-ui-forge integration: [detected / not found]
-  design/design-arch.json:  [bridged / pending / N/A]
+ui-forge integration:            ← [detected / not found]
+  design/design-arch.json:       ← [bridged / pending / N/A]
+  _paired mirror block:          ← [written / pending / N/A]
+```
 
+If UI Forge's scan emitted a fallback banner (Step 6c), append it here verbatim under a `Scan synthesis fallback:` heading so the user sees it inline.
+
+```
 Edit protocols under /docs/protocol/ freely. Your edits take precedence over
 the skill's defaults at lookup time.
 

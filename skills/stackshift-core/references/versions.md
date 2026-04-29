@@ -26,6 +26,7 @@
 |---|---|---|
 | 0.1.5 — 0.1.7 | ≥0.1.1, <0.2.0 | Requires `CONVERT_VARIANT` signal (ui-forge ≥0.1.2) |
 | 0.1.8 | ≥0.1.8 | `SIGNAL_A11Y` via `a11yRequired` marker, `SIGNAL_BRAND` via `designStandards.brand`, pre-flight `--validate-input`, postcondition `validate-contract.js`. |
+| 0.1.9 (incl. 0.1.9A sync) | ≥0.1.9 | `paired-mode-contract` recommended; `claude-design-handoff` (`--handoff <url>`, `+CLAUDE_DESIGN`, `/forge-export-design`) and `auto-verify-hook` (`verify.js` single-arg + `// @contract` directive) optional. Skill-root resolution delegates to UI Forge `scripts/detect.sh`. Bootstrap captures and surfaces UI Forge's scan-fallback banner. Optional `_paired` mirror block in `design-arch.json`. |
 
 **Runtime check:** During bootstrap (Step 6e of `bootstrap/install.md`), StackShift reads `ui-forge`'s `skill.version` and compares against this table. A mismatch emits a non-fatal warning before the first Step 4 handoff.
 
@@ -36,6 +37,14 @@
 The `@contract-version` JSDoc tag on every section props interface tracks the Variant Router contract version. Current version: **1.0.0**.
 
 When the Variant Router protocol ships a breaking change, bump this tag in all affected `index.tsx` files — in coordination with UI Forge's `SUPPORTED_CONTRACT_VERSIONS`. UI Forge treats an unrecognised version as a FORGE NOTES warning, not a hard failure.
+
+UI Forge ≥ 0.1.7 ships the `@extragraj/variant-contract` package at `<UI_FORGE>/packages/variant-contract/`. The `compatibility` block in `<UI_FORGE>/packages/variant-contract/contract.schema.json` lists supported StackShift contract versions:
+
+```json
+{ "uiForge": ">=0.1.3", "stackshift": ">=0.1.5" }
+```
+
+When bumping the contract version, edit **both** this file and `<UI_FORGE>/packages/variant-contract/contract.schema.json` together; document the bump in both repos' change logs. The handshake is documented in detail in `protocols/paired-mode-contract.md`.
 
 See `protocols/variant-router.md` for the canonical pattern.
 
@@ -48,3 +57,4 @@ See `protocols/variant-router.md` for the canonical pattern.
 - ✅ Optional chaining (`?.`) wherever Sanity data could be null/undefined
 - ✅ `@portabletext/react` for rich text rendering
 - ✅ `rootSchema()` from `@webriq-pagebuilder/sanity-plugin-schema-default` for section entry files
+- ✅ `@stackshift-ui/sheet` and `@stackshift-ui/dialog` for modal overlay wrappers (modal-sheet protocol only; import inside variant files, not index.tsx)

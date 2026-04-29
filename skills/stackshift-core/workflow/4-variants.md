@@ -11,6 +11,13 @@
 >
 > **Required protocols** (load and enforce):
 > - Variant Router — `index.tsx` rules: exported props interface, `null` fallback, `?? undefined` extraction
+>
+> **Optional protocols** that, when active in the merged registry, modify this step:
+> - Accessibility — adds `A11Y` sub-block postcondition
+> - Brand — adds `BRAND` sub-block postcondition
+> - Claude Design Handoff — extends ref-selection rules to allow `--handoff <url>` and adds `CLAUDE_DESIGN` sub-block postcondition
+> - Auto-Verify Hook — collapses the manual `validate-contract.js` postcondition into an automatic PostToolUse run
+> - Paired-Mode Contract — canonical handshake reference; load when reviewing skill-root resolution, marker fields, or flag refusals
 
 > This is the ONLY step that delegates to `ui-forge`.
 > StackShift owns the wiring (index.tsx, props interface, dynamic import).
@@ -19,6 +26,8 @@
 Strict sub-step order: **4a → 4b → 4c → 4d**. Do not reorder.
 
 > **Paired-mode constraints.** UI Forge refuses the following flags when invoked in paired mode (StackShift as caller): `--creative`, `--diff`, `--preview`. The contract-first handoff and these modes are mutually exclusive by design. For iterative regeneration of a completed variant, run UI Forge standalone with `--diff` outside the StackShift workflow — the output path is the only thing that matters, and the result will replace the variant file in place.
+>
+> See `protocols/paired-mode-contract.md` for the full refusal matrix, modifier composition rules, marker fields, and the contract version handshake.
 
 ---
 
@@ -132,15 +141,34 @@ All of the following must be true before calling `ui-forge`. If any check fails,
 
 ### `${UI_FORGE_SKILL_DIR}` Resolution
 
-Resolve the `ui-forge` skill directory using this lookup order. Use the **first path that exists**:
+**Preferred path (UI Forge ≥ 0.1.9):** invoke `sh <candidate>/scripts/detect.sh` against the candidate paths below. The first that succeeds prints the absolute skill root to stdout — capture it as `UI_FORGE_SKILL_DIR`. UI Forge's `detect.sh` is the upstream source of truth for the search order; delegating to it keeps StackShift in sync with future install-location changes.
+
+```bash
+# Try detect.sh first
+for candidate in \
+  ".claude/skills/ui-forge" \
+  ".agents/skills/ui-forge" \
+  ".codex/skills/ui-forge" \
+  "$HOME/.claude/skills/ui-forge" \
+  "$HOME/.agents/skills/ui-forge" \
+  "$HOME/.codex/skills/ui-forge"; do
+  if [ -x "$candidate/scripts/detect.sh" ]; then
+    UI_FORGE_SKILL_DIR="$(sh "$candidate/scripts/detect.sh")" && break
+  fi
+done
+```
+
+**Fallback (UI Forge < 0.1.9 or `detect.sh` missing):** use the **first path that exists** from this list:
 
 1. Environment variable `UI_FORGE_SKILL_DIR` if set
 2. `.claude/skills/ui-forge/` (project-scope Claude Code install)
 3. `.agents/skills/ui-forge/` (project-scope agents install)
-4. `.codex/skills/ui-forge/` (project-scope Codex CLI install)
+4. `.codex/skills/ui-forge/` (legacy — pre-0.1.9A Codex CLI install)
 5. `~/.claude/skills/ui-forge/` (global Claude Code install)
 6. `~/.agents/skills/ui-forge/` (global agents install)
-7. `~/.codex/skills/ui-forge/` (global Codex CLI install)
+7. `~/.codex/skills/ui-forge/` (legacy — pre-0.1.9A global Codex CLI install)
+
+The fallback list is the same one referenced in `protocols/paired-mode-contract.md`.
 
 **If none resolve:** halt Step 4 with a clear error:
 
@@ -151,10 +179,8 @@ Step 4 requires the ui-forge companion skill to generate variant bodies.
 StackShift never authors component code directly.
 
 Install ui-forge:
-  Claude Code:  npx skills add extragraj/ui-forge -a claude-code
-  Codex CLI:    npx @extragraj/stackshift-skills init --platform codex --no-interactive
-                (then install ui-forge to .codex/skills/ui-forge/ via its own installer)
-  General:      npx skills add extragraj/ui-forge
+  Claude Code:      npx skills add extragraj/ui-forge -a claude-code
+  Universal agents: npx skills add extragraj/ui-forge -a agents
 
 Then re-run Step 4.
 ```
@@ -180,7 +206,23 @@ This check confirms the props interface is well-formed and its name can be extra
 
 ### Invocation
 
-Execute the following command, substituting placeholders with actual values:
+Two invocation paths are supported. Choose based on runtime.
+
+**Claude Code (preferred when `.claude/` directory exists):**
+
+```
+/forge --task "Generate body for <VariantName> variant of <SectionName> section. \
+               Conform to the props interface in <types-path>. Do not modify index.tsx \
+               or the props interface. Write variant body only." \
+       --refs <path-to-types.ts>,<path-to-initialValue-dir>,<path-to-variant-thumbnail> \
+       --output components/sections/<name>/<Variant>.tsx \
+       --mode body-only \
+       --signal CONVERT_VARIANT
+```
+
+The slash command routes through `$CLAUDE_PLUGIN_ROOT` and is equivalent to the bash form below. Requires UI Forge ≥ 0.1.9.
+
+**General agents / UI Forge < 0.1.9:**
 
 ```bash
 node ${UI_FORGE_SKILL_DIR}/scripts/invoke.js \
@@ -193,6 +235,18 @@ node ${UI_FORGE_SKILL_DIR}/scripts/invoke.js \
   --signal CONVERT_VARIANT
 ```
 
+**Claude Design handoff variant** — when the `claude-design-handoff` protocol is active, the layout source can be a Claude Design URL instead of an HTML/TSX file. `--task` may be omitted (UI Forge derives it from the handoff README heading):
+
+```
+/forge --handoff <claude-design-url> \
+       --refs <path-to-types.ts> \
+       --output components/sections/<name>/<Variant>.tsx \
+       --mode body-only \
+       --signal CONVERT_VARIANT
+```
+
+See `protocols/claude-design-handoff.md` and `references/claude-design-roundtrip.md`.
+
 **Ref-selection rules:**
 
 | Ref type | Include? | Why |
@@ -200,6 +254,7 @@ node ${UI_FORGE_SKILL_DIR}/scripts/invoke.js \
 | `.ts`/`.tsx` file containing the exported props interface | **Required** | Contract that `ui-forge` must conform to |
 | `initialValue/` directory contents | **Recommended** | Gives `ui-forge` realistic placeholder copy |
 | `images/<variant>.png` thumbnail | **Recommended** | Vision-based layout hints if present |
+| Claude Design handoff URL via `--handoff <url>` | **Permitted** when `claude-design-handoff` protocol is active | Layout authority — handoff wins for visual spec; `design-arch.json` wins for tokens. Mutually exclusive with HTML/TSX layout refs. |
 | Section schema file | **Never** | StackShift territory — confuses signal detection |
 | GROQ query file (`pages/api/query.ts`) | **Never** | StackShift territory — confuses signal detection |
 | `index.tsx` | **Never** | StackShift territory — `ui-forge` must not modify wiring |
@@ -236,13 +291,23 @@ Run these checks **after** `ui-forge` returns. All must pass.
 **Structural (validator-driven):**
 - [ ] Run `node ${UI_FORGE_SKILL_DIR}/scripts/validate-contract.js <output-variant-file> <path-to-types.ts>` — must exit 0. This covers: exports present, contract imported, `?? null` / `?? undefined` usage, no extra files, props interface unchanged.
 
+> **When the `auto-verify-hook` protocol is active**, the PostToolUse hook fires automatically on the variant write and runs UI Forge's `verify.js` (which delegates to `validate.js` from `@extragraj/variant-contract`). The structural postcondition becomes "hook exit code 0" — no separate command. The manual `validate-contract.js` invocation remains valid as a backup or for non-Claude-Code runtimes. See `protocols/auto-verify-hook.md`.
+
 **StackShift-specific (manual):**
 - [ ] Variant file begins with `// FORGE NOTES` header
+- [ ] `// @contract <path-to-types.ts>` directive present on line 3 of FORGE NOTES (UI Forge ≥ 0.1.9 — required by `SIGNAL_VARIANT`; consumed by the auto-verify hook to resolve the contract path)
 - [ ] `index.tsx` is bytewise unchanged (diff against git if possible)
 - [ ] No new files written outside `components/sections/<name>/`
 
 **Accessibility (when `accessibility` protocol is active):**
 - [ ] `// FORGE NOTES` header contains an `A11Y` sub-block
+
+**Brand (when `brand` protocol is active):**
+- [ ] `// FORGE NOTES` header contains a `BRAND` sub-block
+
+**Claude Design (when `claude-design-handoff` protocol is active and `--handoff` was used):**
+- [ ] `// FORGE NOTES` header contains a `CLAUDE_DESIGN` sub-block documenting source URL, task summary, and token remappings
+- [ ] No tokens from the handoff appear inline in the generated TSX (every color/spacing value resolves to a `design-arch.json` token name)
 
 If any postcondition fails, follow the Failure Modes protocol below.
 
@@ -257,11 +322,14 @@ The `Checker` column identifies whether detection and response are owned by UI F
 | Failure | Checker | Detection | Response |
 |---|---|---|---|
 | Malformed props interface | UI Forge (`--validate-input`) | Pre-flight exit ≠ 0 | Present stderr verbatim. Halt. Fix the contract file before retrying. Do not proceed to main invocation. |
-| Contract violation | UI Forge (`validate-contract.js`) | Post-gen exit ≠ 0 | Present stderr verbatim. Halt Step 4. Present the full violation list. Do not auto-fix. |
+| Contract violation | UI Forge (`validate-contract.js` or auto-verify hook) | Post-gen exit ≠ 0 | Present stderr verbatim. Halt Step 4. Present the full violation list. Do not auto-fix. |
 | Missing `design-arch.json` | UI Forge (stderr) | Stderr matches `design-arch.json not found` or file absent at precondition check | Run `node ${UI_FORGE_SKILL_DIR}/scripts/scan.js`, then retry invocation **once**. If it fails again, halt. |
 | Missing `FORGE NOTES` header | StackShift | File does not begin with `// FORGE NOTES` | Re-invoke with explicit `--task` addendum: "Output MUST begin with `// FORGE NOTES` block." **Max 1 retry.** If second attempt also fails, present output to user and halt. |
+| Missing `// @contract` directive | StackShift | Auto-verify hook stderr note "no @contract directive" (when `auto-verify-hook` protocol active) | Re-invoke with `--task` addendum: "FORGE NOTES MUST include `// @contract <path>` on line 3." Max 1 retry. |
+| Claude Design handoff fetch failed | UI Forge (`fetch-handoff.js` stderr) | Non-zero exit from fetch sub-process; stderr shows 401/403/timeout | Present stderr verbatim. Halt. Re-export the handoff URL from Claude Design and retry. Do not retry automatically. |
+| Missing `CLAUDE_DESIGN` sub-block | StackShift | `--handoff` used but FORGE NOTES lacks `CLAUDE_DESIGN` block (when `claude-design-handoff` protocol active) | Likely classification miss — confirm `--handoff` reached `invoke.js`. Re-invoke with explicit ref under `design/.handoff-cache/`. Max 1 retry. |
 | `index.tsx` modified | StackShift | Bytewise diff shows change | Restore from git (`git checkout -- components/sections/<name>/index.tsx`) if available, otherwise present diff and halt. |
-| Unexpected file written | StackShift | Post-run file listing of `components/sections/<name>/` and `design/` | Delete the unexpected file, halt, instruct user that signal detection misfired and `ui-forge` was invoked with an incorrect signal. |
+| Unexpected file written | StackShift | Post-run file listing of `components/sections/<name>/` and `design/` (excluding `design/.handoff-cache/` when handoff is active) | Delete the unexpected file, halt, instruct user that signal detection misfired and `ui-forge` was invoked with an incorrect signal. |
 | `ui-forge` non-zero exit | UI Forge | Process exit code ≠ 0 | Capture stderr, present to user verbatim, halt Step 4. Do not retry automatically. |
 
 **Recovery rule:** After any halt, the user must explicitly confirm before Step 4 re-runs. Do not auto-retry beyond the limits specified above.

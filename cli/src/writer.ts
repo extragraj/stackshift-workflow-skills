@@ -36,17 +36,13 @@ interface LockFile {
 }
 
 function resolveTargetDir(scope: 'project' | 'global', platform: Platform): string {
-  const baseDir = platform === 'agents' ? '.agents'
-                : platform === 'claude'  ? '.claude'
-                : '.codex';
+  const baseDir = platform === 'agents' ? '.agents' : '.claude';
   if (scope === 'global') return join(homedir(), baseDir, 'skills');
   return join(process.cwd(), baseDir, 'skills');
 }
 
 function resolveLockPath(scope: 'project' | 'global', platform: Platform): string {
-  const baseDir = platform === 'agents' ? '.agents'
-                : platform === 'claude'  ? '.claude'
-                : '.codex';
+  const baseDir = platform === 'agents' ? '.agents' : '.claude';
   if (scope === 'global') return join(homedir(), baseDir, LOCK_FILE);
   return join(process.cwd(), baseDir, LOCK_FILE);
 }
@@ -133,7 +129,7 @@ function resolveProtocolSkillName(tier: Exclude<ProtocolTier, 'custom'>): string
  */
 function getInstalledPlatforms(scope: 'project' | 'global'): Platform[] {
   const platforms: Platform[] = [];
-  const platformsToCheck: Platform[] = ['agents', 'claude', 'codex'];
+  const platformsToCheck: Platform[] = ['agents', 'claude'];
 
   for (const platform of platformsToCheck) {
     const targetDir = resolveTargetDir(scope, platform);
@@ -201,51 +197,6 @@ function cleanupLockFile(lockPath: string, newBundleName: string): void {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.warn(`Warning: Could not clean lock file ${lockPath}: ${message}`);
-  }
-}
-
-/**
- * Write or update AGENTS.md with a StackShift skill entry.
- * Creates the file if absent; replaces the StackShift block if already present;
- * appends without touching existing content if the file exists but has no block.
- */
-function writeAgentsMd(scope: 'project' | 'global'): void {
-  const agentsMdPath = scope === 'global'
-    ? join(homedir(), '.codex', 'AGENTS.md')
-    : join(process.cwd(), 'AGENTS.md');
-
-  const STACKSHIFT_START = '<!-- stackshift-skill -->';
-  const STACKSHIFT_END = '<!-- /stackshift-skill -->';
-  const STACKSHIFT_BLOCK =
-    `${STACKSHIFT_START}\n` +
-    `## StackShift Skill\n\n` +
-    `When the user asks to add a section, create a new variant, add a field, extend the schema,\n` +
-    `or any work touching \`schemas/custom/**\`, \`components/sections/**\`,\n` +
-    `\`pages/api/query.ts\`, or \`types.ts\`:\n\n` +
-    `1. Load the skill from the first path that exists:\n` +
-    `   - \`.codex/skills/stackshift-core/SKILL.md\` (project install)\n` +
-    `   - \`~/.codex/skills/stackshift-core/SKILL.md\` (global install)\n` +
-    `2. Read \`SKILL.md\` — it routes you to the correct workflow step file.\n` +
-    `3. Never reorder the 5-step workflow: Schema → Section → Types → Variant → GROQ.\n` +
-    `${STACKSHIFT_END}`;
-
-  if (!pathExistsSync(agentsMdPath)) {
-    if (scope === 'global') {
-      ensureDirSync(join(homedir(), '.codex'));
-    }
-    writeFileSync(agentsMdPath, `# Project Agent Instructions\n\n${STACKSHIFT_BLOCK}\n`, 'utf8');
-    return;
-  }
-
-  const existing = readFileSync(agentsMdPath, 'utf8');
-  if (existing.includes(STACKSHIFT_START)) {
-    const updated = existing.replace(
-      /<!-- stackshift-skill -->[\s\S]*?<!-- \/stackshift-skill -->/,
-      STACKSHIFT_BLOCK,
-    );
-    writeFileSync(agentsMdPath, updated, 'utf8');
-  } else {
-    writeFileSync(agentsMdPath, existing.trimEnd() + '\n\n' + STACKSHIFT_BLOCK + '\n', 'utf8');
   }
 }
 
@@ -388,11 +339,6 @@ export function writeSelection(
 
   // Write .stackshift/installed.json (always overwrites to keep tier up to date)
   writeStackshiftMarker(choices, allProtocols);
-
-  // Write AGENTS.md for Codex CLI skill discovery
-  if (choices.platforms.includes('codex')) {
-    writeAgentsMd(choices.scope);
-  }
 
   return results;
 }

@@ -3,7 +3,7 @@ import type { InstallChoices, ProtocolTier, ScopeChoice, Platform } from './prom
 export interface Flags {
   tier?: 'required' | 'recommended' | 'full';
   scope?: 'project' | 'global';
-  platforms?: ('agents' | 'claude' | 'codex')[];
+  platforms?: ('agents' | 'claude')[];
   noInteractive?: boolean;
   help?: boolean;
 }
@@ -62,11 +62,11 @@ export function parseFlags(args: string[]): Flags {
           const validPlatforms: Platform[] = [];
 
           for (const p of platforms) {
-            if (p === 'agents' || p === 'claude' || p === 'codex') {
+            if (p === 'agents' || p === 'claude') {
               validPlatforms.push(p);
             } else {
               console.error(`Invalid --platform value: ${p}`);
-              console.error('Valid values: agents, claude, codex, or comma-separated combinations');
+              console.error('Valid values: agents, claude, or comma-separated combinations');
               process.exit(1);
             }
           }
@@ -141,8 +141,8 @@ COMMANDS:
 OPTIONS:
   --tier <required|recommended|full>    Protocol tier (default: recommended)
   --scope <project|global>              Install location (default: project)
-  --platform <agents|claude|codex>      Platform(s) (default: agents)
-                                        Use comma-separated for multiple: agents,claude,codex
+  --platform <agents|claude>            Platform(s) (default: agents)
+                                        Use comma-separated for multiple: agents,claude
   --no-interactive                      Skip prompts, use flags + defaults
   --help, -h                            Show this help
 
@@ -158,7 +158,6 @@ EXAMPLES:
 
   # Install to multiple platforms
   npx @extragraj/stackshift-skills init --platform agents,claude --no-interactive
-  npx @extragraj/stackshift-skills init --platform claude,codex --no-interactive
 
   # Fix multi-tier installation
   npx @extragraj/stackshift-skills repair

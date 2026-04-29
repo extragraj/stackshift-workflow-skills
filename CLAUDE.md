@@ -70,3 +70,33 @@ The CLI reads the `skills/` directory at runtime relative to its own `__dirname`
 ### Bootstrap Flow
 
 On first AI invocation in a target project (no `.stackshift/installed.json`), the skill runs `bootstrap/install.md`: prompts for install mode, copies selected protocols to `/docs/protocol/`, writes the marker file. Project copies in `/docs/protocol/` take precedence over bundled skill copies at every subsequent lookup.
+
+Bootstrap also wires up the StackShift ↔ UI Forge handshake when UI Forge is detected:
+
+- Step 6c — resolves `${UI_FORGE_SKILL_DIR}` (prefers UI Forge's `scripts/detect.sh` ≥ 0.1.9; falls back to a 7-entry path lookup), runs `scan.js` if `design/design-arch.json` is missing, captures and surfaces the scan-fallback banner.
+- Step 6g — runs `/forge-export-design` (or `export-design.js`) when the `claude-design-handoff` protocol is materialized to seed Claude Design with project tokens.
+- Step 6h — writes a `_paired` mirror block into `design-arch.json` so UI Forge can read StackShift markers from one surface (canonical write target stays `.stackshift/installed.json`).
+- Step 7b — registers a Claude Code `PostToolUse` hook in `.claude/settings.json` (idempotent merge) when the `auto-verify-hook` protocol is materialized.
+- Step 8 — `.forgeignore` defaults include `design/.handoff-cache/` and `design/claude-design-bundle/` so UI Forge never walks regeneratable artifacts.
+
+### Companion Skill (UI Forge)
+
+StackShift delegates Step 4 variant body generation to the `ui-forge` companion skill. The two skills share state through three files:
+
+- `.stackshift/installed.json` — StackShift writes (`a11yRequired`, `protocols`, `uiForgeIntegration`); UI Forge reads for paired-mode detection.
+- `design/design-arch.json` — UI Forge owns most fields; StackShift writes `designStandards.*` pointers and the optional `_paired` mirror block.
+- `.claude/settings.json` — receives the StackShift PostToolUse hook entry when `auto-verify-hook` is active.
+
+The full handshake (skill-root resolution, marker fields, flag refusal matrix, modifier composition, contract version dance) lives in `skills/stackshift-core/protocols/paired-mode-contract.md`. Other paired protocols (`accessibility`, `brand`, `claude-design-handoff`, `auto-verify-hook`) link to that document instead of restating its rules.
+
+When a UI Forge feature ships that StackShift should surface (e.g. new signal, new flag, new script), update:
+
+1. `protocols/paired-mode-contract.md` if it changes the handshake.
+2. `workflow/4-variants.md` if it changes Step 4 invocation, ref rules, postconditions, or failure modes.
+3. `bootstrap/install.md` if it changes what bootstrap writes.
+4. `references/versions.md` compatibility matrix.
+5. `references/file-map.md` if it introduces or removes a project-side file.
+
+### Versioning
+
+The canonical version lives in `skill.version` (plain text, semver). Changes that update protocols, workflow, or bootstrap without altering the public CLI surface or breaking compatibility are tracked as **letter-suffixed sub-releases** (e.g. `0.1.9A`, `0.1.9B`) — a new file in `change-logs/` named `<x-y-zL>-short-description.md`, no version-number bump. Bump the numeric version only on breaking changes or when explicitly shipping a new minor/patch release.

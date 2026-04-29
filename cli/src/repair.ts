@@ -36,7 +36,7 @@ interface InstalledJson {
   protocols?: Array<{ id: string; tier: string; file?: string; dir?: string }>;
 }
 
-type Platform = 'agents' | 'claude' | 'codex';
+type Platform = 'agents' | 'claude';
 
 /**
  * Read intended tier from .stackshift/installed.json
@@ -65,12 +65,10 @@ function readIntendedTier(): string | null {
  */
 function scanForBundles(): Set<string> {
   const bundles = new Set<string>();
-  const platforms: Platform[] = ['agents', 'claude', 'codex'];
+  const platforms: Platform[] = ['agents', 'claude'];
 
   for (const platform of platforms) {
-    const baseDir = platform === 'agents' ? '.agents'
-                  : platform === 'claude'  ? '.claude'
-                  : '.codex';
+    const baseDir = platform === 'agents' ? '.agents' : '.claude';
     const skillsDir = join(process.cwd(), baseDir, 'skills');
 
     if (pathExistsSync(skillsDir)) {
@@ -109,14 +107,12 @@ function scanForBundles(): Set<string> {
  * Remove protocol bundle folders from all locations
  */
 function removeBundleFromAllLocations(bundleName: string): void {
-  const platforms: Platform[] = ['agents', 'claude', 'codex'];
+  const platforms: Platform[] = ['agents', 'claude'];
   const scopes: ('project' | 'global')[] = ['project', 'global'];
 
   for (const scope of scopes) {
     for (const platform of platforms) {
-      const baseDir = platform === 'agents' ? '.agents'
-                    : platform === 'claude'  ? '.claude'
-                    : '.codex';
+      const baseDir = platform === 'agents' ? '.agents' : '.claude';
       const skillsDir = scope === 'global'
         ? join(homedir(), baseDir, 'skills')
         : join(process.cwd(), baseDir, 'skills');
@@ -157,14 +153,12 @@ function cleanLockFile(lockPath: string, keepBundle: string): void {
  * Update all lock files across platforms and scopes
  */
 function updateAllLockFiles(keepBundle: string): void {
-  const platforms: Platform[] = ['agents', 'claude', 'codex'];
+  const platforms: Platform[] = ['agents', 'claude'];
   const scopes: ('project' | 'global')[] = ['project', 'global'];
 
   for (const scope of scopes) {
     for (const platform of platforms) {
-      const baseDir = platform === 'agents' ? '.agents'
-                    : platform === 'claude'  ? '.claude'
-                    : '.codex';
+      const baseDir = platform === 'agents' ? '.agents' : '.claude';
       const lockPath = scope === 'global'
         ? join(homedir(), baseDir, 'skills-lock.json')
         : join(process.cwd(), baseDir, 'skills-lock.json');
