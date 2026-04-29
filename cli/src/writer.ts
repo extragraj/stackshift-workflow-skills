@@ -253,18 +253,32 @@ function writeStackshiftMarker(
     } catch { /* overwrite on parse failure */ }
   }
 
+  // Strip seed from existing so a 'none' selection actively removes it
+  const { seed: _prevSeed, ...restExisting } = existing as Record<string, unknown> & { seed?: string };
+
+  // When keeping the existing protocol tier, preserve the recorded mode + protocols
+  const mode = choices.keepProtocol && existing.mode
+    ? String(existing.mode)
+    : modeMap[choices.protocolTier];
+
+  const protocolList = choices.keepProtocol && existing.protocols
+    ? existing.protocols as Array<{ id: string; tier: string; file?: string; dir?: string }>
+    : protocols.map(({ id, tier, file, dir }) => {
+        const entry: { id: string; tier: string; file?: string; dir?: string } = { id, tier };
+        if (file) entry.file = file;
+        if (dir) entry.dir = dir;
+        return entry;
+      });
+
   writeJsonAtomic(markerPath, {
-    ...existing,
+    ...restExisting,
     skillVersion,
     installedAt: new Date().toISOString(),
-    mode: modeMap[choices.protocolTier],
-    protocols: protocols.map(({ id, tier, file, dir }) => {
-      const entry: { id: string; tier: string; file?: string; dir?: string } = { id, tier };
-      if (file) entry.file = file;
-      if (dir) entry.dir = dir;
-      return entry;
-    }),
-    // Seeds removed - not materialized to project (remain in skill only as standard strategies)
+    mode,
+    protocols: protocolList,
+    ...(choices.seed && choices.seed !== 'none'
+      ? { seed: choices.seed }
+      : {}),
   });
 }
 
@@ -312,25 +326,26 @@ export function writeSelection(
       installed.push(coreSkill.name);
     }
 
-    // Clean up old protocol bundles (folders and lock entries)
-    cleanupOldProtocolBundles(targetDir, bundleName);
-    cleanupLockFile(lockPath, bundleName);
+    // When keeping the existing protocol tier, skip bundle cleanup and install
+    if (!choices.keepProtocol) {
+      cleanupOldProtocolBundles(targetDir, bundleName);
+      cleanupLockFile(lockPath, bundleName);
 
-    // Install protocol bundle
-    if (choices.protocolTier === 'custom') {
-      buildCustomProtocolSkill(choices.customProtocols, allProtocols, targetDir);
-      appendLock(lockPath, {
-        name: 'stackshift-protocols-custom',
-        installedAt: now,
-        scope: choices.scope,
-      });
-      installed.push('stackshift-protocols-custom');
-    } else {
-      const bundleSkill = skills.find((s) => s.name === bundleName);
-      if (bundleSkill) {
-        copySkillFolder(bundleSkill.folderPath, targetDir);
-        appendLock(lockPath, { name: bundleName, installedAt: now, scope: choices.scope });
-        installed.push(bundleName);
+      if (choices.protocolTier === 'custom') {
+        buildCustomProtocolSkill(choices.customProtocols, allProtocols, targetDir);
+        appendLock(lockPath, {
+          name: 'stackshift-protocols-custom',
+          installedAt: now,
+          scope: choices.scope,
+        });
+        installed.push('stackshift-protocols-custom');
+      } else {
+        const bundleSkill = skills.find((s) => s.name === bundleName);
+        if (bundleSkill) {
+          copySkillFolder(bundleSkill.folderPath, targetDir);
+          appendLock(lockPath, { name: bundleName, installedAt: now, scope: choices.scope });
+          installed.push(bundleName);
+        }
       }
     }
 

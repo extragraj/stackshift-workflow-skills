@@ -1,4 +1,4 @@
-import { intro, outro, select, spinner } from '@clack/prompts';
+import { intro, outro, select, spinner, note } from '@clack/prompts';
 import fsExtra from 'fs-extra';
 const { readdirSync, pathExistsSync, removeSync, readJsonSync, writeJsonSync, readFileSync } = fsExtra;
 import { renameSync } from 'fs';
@@ -6,6 +6,8 @@ import { join } from 'path';
 import { homedir } from 'os';
 import { fileURLToPath } from 'url';
 import { resolve } from 'path';
+import { loadSeedRegistry } from './registry.js';
+import type { SeedEntry } from './registry.js';
 
 /**
  * Atomic JSON write: write to a `.tmp` file, then rename.
@@ -34,6 +36,7 @@ interface InstalledJson {
   skillVersion?: string;
   mode?: string;
   protocols?: Array<{ id: string; tier: string; file?: string; dir?: string }>;
+  seed?: string;
 }
 
 type Platform = 'agents' | 'claude';
@@ -60,8 +63,19 @@ function readIntendedTier(): string | null {
   }
 }
 
+function readInstalledSeed(): string | undefined {
+  const markerPath = join(process.cwd(), '.stackshift', 'installed.json');
+  if (!pathExistsSync(markerPath)) return undefined;
+  try {
+    const data = readJsonSync(markerPath) as InstalledJson;
+    return data.seed ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
- * Scan both platforms for protocol bundle folders
+ * Scan both platforms and both scopes for protocol bundle folders
  */
 function scanForBundles(): Set<string> {
   const bundles = new Set<string>();
@@ -104,6 +118,38 @@ function scanForBundles(): Set<string> {
 }
 
 /**
+ * Scan both platforms and both scopes for stackshift-seed-* folders
+ */
+function scanForSeedFolders(): Set<string> {
+  const seeds = new Set<string>();
+  const platforms: Platform[] = ['agents', 'claude'];
+
+  for (const platform of platforms) {
+    const baseDir = platform === 'agents' ? '.agents' : '.claude';
+
+    for (const skillsDir of [
+      join(process.cwd(), baseDir, 'skills'),
+      join(homedir(), baseDir, 'skills'),
+    ]) {
+      if (pathExistsSync(skillsDir)) {
+        try {
+          const folders = readdirSync(skillsDir, { withFileTypes: true });
+          for (const folder of folders) {
+            if (folder.isDirectory() && folder.name.startsWith('stackshift-seed-')) {
+              seeds.add(folder.name);
+            }
+          }
+        } catch {
+          // Directory not readable, skip
+        }
+      }
+    }
+  }
+
+  return seeds;
+}
+
+/**
  * Remove protocol bundle folders from all locations
  */
 function removeBundleFromAllLocations(bundleName: string): void {
@@ -124,6 +170,33 @@ function removeBundleFromAllLocations(bundleName: string): void {
         } catch (err: unknown) {
           const message = err instanceof Error ? err.message : String(err);
           console.warn(`Warning: Could not remove ${bundlePath}: ${message}`);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Remove seed folders from all locations
+ */
+function removeSeedFromAllLocations(folderName: string): void {
+  const platforms: Platform[] = ['agents', 'claude'];
+  const scopes: ('project' | 'global')[] = ['project', 'global'];
+
+  for (const scope of scopes) {
+    for (const platform of platforms) {
+      const baseDir = platform === 'agents' ? '.agents' : '.claude';
+      const skillsDir = scope === 'global'
+        ? join(homedir(), baseDir, 'skills')
+        : join(process.cwd(), baseDir, 'skills');
+
+      const folderPath = join(skillsDir, folderName);
+      if (pathExistsSync(folderPath)) {
+        try {
+          removeSync(folderPath);
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : String(err);
+          console.warn(`Warning: Could not remove ${folderPath}: ${message}`);
         }
       }
     }
@@ -209,70 +282,198 @@ function updateInstalledMarker(keepBundle: string): void {
   }
 }
 
+/**
+ * Update .stackshift/installed.json seed field.
+ * Pass undefined to remove the seed field (no active seed).
+ */
+function updateInstalledSeed(seedId: string | undefined): void {
+  const markerPath = join(process.cwd(), '.stackshift', 'installed.json');
+  if (!pathExistsSync(markerPath)) return;
+
+  try {
+    const existing = readJsonSync(markerPath) as InstalledJson;
+
+    // Remove seed key then conditionally re-add
+    const { seed: _removed, ...rest } = existing;
+    const updated = seedId ? { ...rest, seed: seedId } : rest;
+
+    writeJsonAtomic(markerPath, updated);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(`Warning: Could not update seed in .stackshift/installed.json: ${message}`);
+  }
+}
+
+/**
+ * Given a folder name like "stackshift-seed-initialvalue", find the matching registry entry.
+ * Convention: folder = "stackshift-seed-" + id.replace(/-seeding$/, "")
+ */
+function findSeedEntryByFolder(folderName: string, registry: SeedEntry[]): SeedEntry | undefined {
+  return registry.find((s) => {
+    const expectedFolder = `stackshift-seed-${s.id.replace(/-seeding$/, '')}`;
+    return expectedFolder === folderName;
+  });
+}
+
+/**
+ * Given a seed folder name, return its expected installed.json id from the registry.
+ * Returns undefined when no registry entry matches.
+ */
+function deriveSeedId(folderName: string, registry: SeedEntry[]): string | undefined {
+  return findSeedEntryByFolder(folderName, registry)?.id;
+}
+
 export async function repair(): Promise<void> {
-  intro('stackshift repair — fix multi-tier installations');
+  intro('StackShift Skills Repair');
 
   const s = spinner();
-  s.start('Scanning for protocol bundles');
+  s.start('Scanning for protocol bundles and seed folders');
 
   const allBundles = scanForBundles();
+  const allSeedFolders = scanForSeedFolders();
 
   s.stop('Scan complete');
 
+  const outroLines: string[] = [];
+
+  // ── Protocol bundle repair ──────────────────────────────────────────────────
+
   if (allBundles.size === 0) {
-    outro('⚠ No protocol bundles found. Run: npx @extragraj/stackshift-skills init');
-    return;
-  }
-
-  if (allBundles.size === 1) {
+    outroLines.push('⚠ No protocol bundles found. Run: npx @extragraj/stackshift-skills init');
+  } else if (allBundles.size === 1) {
     const [bundle] = allBundles;
-    outro(`✓ Installation is valid. Only one protocol tier found: ${bundle.replace('stackshift-protocols-', '')}`);
-    return;
-  }
+    outroLines.push(`✓ Protocol tier: ${bundle.replace('stackshift-protocols-', '')} (valid)`);
+  } else {
+    // Multiple tiers found — ask which to keep
+    const intendedTier = readIntendedTier();
 
-  // Multiple tiers found - ask which to keep
-  const intendedTier = readIntendedTier();
+    const keepTier = await select({
+      message: `Multiple protocol tiers found (${allBundles.size} bundles). Which should we keep?`,
+      options: Array.from(allBundles)
+        .sort()
+        .map((name) => ({
+          value: name,
+          label: name.replace('stackshift-protocols-', ''),
+          hint: name === intendedTier ? 'from .stackshift/installed.json' : undefined,
+        })),
+    });
 
-  const keepTier = await select({
-    message: `Multiple protocol tiers found (${allBundles.size} bundles). Which should we keep?`,
-    options: Array.from(allBundles)
-      .sort()
-      .map((name) => ({
-        value: name,
-        label: name.replace('stackshift-protocols-', ''),
-        hint: name === intendedTier ? 'from .stackshift/installed.json' : undefined,
-      })),
-  });
-
-  if (typeof keepTier === 'symbol') {
-    // User cancelled
-    outro('Cancelled');
-    return;
-  }
-
-  const s2 = spinner();
-  s2.start('Cleaning up protocol bundles');
-
-  // Remove all except selected
-  let removedCount = 0;
-  for (const bundle of allBundles) {
-    if (bundle !== keepTier) {
-      removeBundleFromAllLocations(bundle);
-      removedCount++;
+    if (typeof keepTier === 'symbol') {
+      outro('Cancelled');
+      return;
     }
+
+    const s2 = spinner();
+    s2.start('Cleaning up protocol bundles');
+
+    let removedCount = 0;
+    for (const bundle of allBundles) {
+      if (bundle !== keepTier) {
+        removeBundleFromAllLocations(bundle);
+        removedCount++;
+      }
+    }
+
+    updateAllLockFiles(keepTier as string);
+    updateInstalledMarker(keepTier as string);
+
+    s2.stop('Protocol cleanup complete');
+
+    outroLines.push(
+      `✓ Protocol tier fixed: kept ${(keepTier as string).replace('stackshift-protocols-', '')}, ` +
+      `removed ${removedCount} bundle(s)\n` +
+      `  Updated .stackshift/installed.json`
+    );
   }
 
-  // Update all lock files
-  updateAllLockFiles(keepTier as string);
+  // ── Seed repair ─────────────────────────────────────────────────────────────
 
-  // Update .stackshift/installed.json to reflect the repaired tier
-  updateInstalledMarker(keepTier as string);
+  const seedRegistry = loadSeedRegistry();
+  const recordedSeed = readInstalledSeed();
 
-  s2.stop('Cleanup complete');
+  if (allSeedFolders.size === 0 && !recordedSeed) {
+    outroLines.push('✓ No seeding strategy active (none selected)');
+  } else if (allSeedFolders.size === 0 && recordedSeed) {
+    note(
+      `installed.json records seed "${recordedSeed}" but no stackshift-seed-* folder was found.\n` +
+      `Run: npx skills add extragraj/stackshift-workflow-skills to reinstall,\n` +
+      `or run: npx @extragraj/stackshift-skills init to change or clear the selection.`,
+      'Seed warning'
+    );
+    outroLines.push(`⚠ Seed "${recordedSeed}" recorded but not installed as a folder`);
+  } else if (allSeedFolders.size === 1) {
+    const [folder] = allSeedFolders;
+    const entry = findSeedEntryByFolder(folder, seedRegistry);
 
-  outro(
-    `✓ Kept: ${keepTier}\n` +
-    `  Removed ${removedCount} bundle(s): ${Array.from(allBundles).filter(b => b !== keepTier).map(b => b.replace('stackshift-protocols-', '')).join(', ')}\n` +
-    `  Updated .stackshift/installed.json`
-  );
+    if (!entry) {
+      note(
+        `Seed folder "${folder}" is not in the current skill registry.\n` +
+        `It may be from an older version. Run init to re-select.`,
+        'Seed validation warning'
+      );
+      outroLines.push(`⚠ Seed folder "${folder}" — not found in registry`);
+    } else {
+      // Sync installed.json seed field if out of sync
+      if (recordedSeed !== entry.id) {
+        updateInstalledSeed(entry.id);
+        outroLines.push(`✓ Seed: ${folder.replace('stackshift-seed-', '')} (valid — synced installed.json)`);
+      } else {
+        outroLines.push(`✓ Seed: ${folder.replace('stackshift-seed-', '')} (valid)`);
+      }
+    }
+  } else {
+    // Multiple seed folders — ask which to keep
+    const intendedSeedFolder = recordedSeed
+      ? `stackshift-seed-${recordedSeed.replace(/-seeding$/, '')}`
+      : undefined;
+
+    const keepSeed = await select({
+      message: `Multiple seed strategies found (${allSeedFolders.size}). Which should we keep?`,
+      options: Array.from(allSeedFolders)
+        .sort()
+        .map((name) => ({
+          value: name,
+          label: name.replace('stackshift-seed-', ''),
+          hint: name === intendedSeedFolder ? 'from .stackshift/installed.json' : undefined,
+        })),
+    });
+
+    if (typeof keepSeed === 'symbol') {
+      outro('Cancelled');
+      return;
+    }
+
+    const s3 = spinner();
+    s3.start('Cleaning up seed folders');
+
+    let removedSeedCount = 0;
+    for (const folder of allSeedFolders) {
+      if (folder !== keepSeed) {
+        removeSeedFromAllLocations(folder);
+        removedSeedCount++;
+      }
+    }
+
+    const newSeedId = deriveSeedId(keepSeed as string, seedRegistry);
+    updateInstalledSeed(newSeedId);
+
+    s3.stop('Seed cleanup complete');
+
+    outroLines.push(
+      `✓ Seed fixed: kept ${(keepSeed as string).replace('stackshift-seed-', '')}, ` +
+      `removed ${removedSeedCount} folder(s)\n` +
+      `  Updated .stackshift/installed.json`
+    );
+  }
+
+  // Validate recorded seed against registry (always runs)
+  if (recordedSeed && !seedRegistry.some((s) => s.id === recordedSeed)) {
+    note(
+      `Active seed "${recordedSeed}" in .stackshift/installed.json is not in the skill registry.\n` +
+      `Run: npx @extragraj/stackshift-skills init to select a valid seed.`,
+      'Seed validation warning'
+    );
+  }
+
+  outro(outroLines.join('\n'));
 }

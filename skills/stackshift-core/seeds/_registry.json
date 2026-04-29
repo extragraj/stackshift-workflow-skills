@@ -1,10 +1,18 @@
 {
   "$schema": "../_registry.schema.json",
-  "description": "Registry of StackShift seeding strategies. A seed is a reusable data/content scaffold that populates a specific area of the project when materialized. The directory is intentionally empty in v0.1.0 — add seeds by dropping a markdown file into this folder and registering it below. Same tier semantics as protocols.",
+  "description": "Registry of StackShift seeding strategies. Only ONE strategy should be active at a time — recorded in .stackshift/installed.json → seed field. Each strategy has a top-level skills/stackshift-seed-<name>/ stub folder for npx skills add discoverability, and canonical content in seeds/<file>. The stub folder name follows the convention: stackshift-seed-<id without -seeding suffix>.",
   "tiers": {
     "required": "Seeding is required for the workflow to produce a valid project state.",
     "recommended": "Seeding is a quality-of-life improvement — workflow functions without it.",
     "optional": "Project-specific or opt-in seeding for advanced scenarios."
   },
-  "seeds": []
+  "seeds": [
+    {
+      "id": "initialvalue-seeding",
+      "tier": "optional",
+      "file": "initialValue-seeding.md",
+      "title": "Initial-Value Seeding",
+      "summary": "Extracts content from HTML mockups or hardcoded components and writes realistic placeholder copy into initialValue/index.ts for Sanity Studio authors. Only one seeding strategy should be active at a time."
+    }
+  ]
 }

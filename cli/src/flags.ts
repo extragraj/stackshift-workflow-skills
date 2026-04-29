@@ -4,6 +4,7 @@ export interface Flags {
   tier?: 'required' | 'recommended' | 'full';
   scope?: 'project' | 'global';
   platforms?: ('agents' | 'claude')[];
+  seed?: string;
   noInteractive?: boolean;
   help?: boolean;
 }
@@ -75,6 +76,12 @@ export function parseFlags(args: string[]): Flags {
         }
         break;
 
+      case '--seed':
+        if (i + 1 < args.length) {
+          flags.seed = args[++i];
+        }
+        break;
+
       case '--no-interactive':
         flags.noInteractive = true;
         break;
@@ -117,7 +124,7 @@ export function validateFlags(flags: Flags): InstallChoices | null {
   return {
     protocolTier: tier as ProtocolTier,
     customProtocols: [],
-    seed: 'none',
+    seed: flags.seed ?? 'none',
     scope,
     platforms,
   };
@@ -143,6 +150,8 @@ OPTIONS:
   --scope <project|global>              Install location (default: project)
   --platform <agents|claude>            Platform(s) (default: agents)
                                         Use comma-separated for multiple: agents,claude
+  --seed <id|none>                      Seeding strategy id, or 'none' (default: none)
+                                        Example: --seed initialvalue-seeding
   --no-interactive                      Skip prompts, use flags + defaults
   --help, -h                            Show this help
 

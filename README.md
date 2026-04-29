@@ -1,6 +1,6 @@
 # StackShift Skill
 
-> **Version** 0.1.9 | **Sanity** v3.17 | **Next.js** 14 Pages Router | **TypeScript** Strict
+> **Version** 0.2.0 | **Sanity** v3.17 | **Next.js** 14 Pages Router | **TypeScript** Strict
 
 A structured agentic skill for building sections and variants inside StackShift, a composable Sanity v3 and Next.js page-builder. Enforces a strict 5-step implementation workflow, governs quality through a tiered protocol system, and delegates component rendering to the `ui-forge` companion skill.
 
@@ -54,6 +54,7 @@ npx skills add extragraj/stackshift-workflow-skills -a claude-code
    - `stackshift-protocols-required` (required protocols only)
    - `stackshift-protocols-recommended` (required + recommended protocols)
    - `stackshift-protocols-full` (all protocols)
+3. **Install only ONE seeding strategy (optional)** - Seeding strategies are discoverable as `stackshift-seed-*` packages. Install at most one. If you accidentally install multiple, run `npx @extragraj/stackshift-skills repair`. Run `npx @extragraj/stackshift-skills init` to activate your chosen seed in `.stackshift/installed.json`.
 
 **Do NOT select multiple protocol tier bundles** (e.g., both `required` and `full`). Each tier is cumulative and includes all lower tiers, so installing multiple bundles is redundant and will cause installation conflicts.
 
@@ -65,15 +66,15 @@ npx skills add extragraj/stackshift-workflow-skills -a claude-code
 | `stackshift-protocols-recommended` | 4 required + 6 recommended (default) | **Recommended for most users** |
 | `stackshift-protocols-full` | All tiers (required + recommended + optional) | Complete protocol coverage |
 
-#### Fixing Multi-Tier Installations
+#### Fixing Multi-Tier or Multi-Seed Installations
 
-If you accidentally installed multiple protocol tier bundles, run:
+If you accidentally installed multiple protocol tier bundles or multiple seeding strategies, run:
 
 ```bash
 npx @extragraj/stackshift-skills repair
 ```
 
-This will scan for multiple bundles and help you keep only one.
+This will scan for multiple protocol bundles and seed folders and help you keep only one of each.
 
 ---
 
@@ -90,6 +91,9 @@ npx @extragraj/stackshift-skills init --no-interactive
 
 # Non-interactive with specific options
 npx @extragraj/stackshift-skills init --tier full --scope project --platform agents,claude --no-interactive
+
+# Non-interactive with seed strategy
+npx @extragraj/stackshift-skills init --seed initialvalue-seeding --no-interactive
 ```
 
 **Available Flags:**
@@ -99,6 +103,7 @@ npx @extragraj/stackshift-skills init --tier full --scope project --platform age
 | `--tier` | `required`, `recommended`, `full` | `recommended` | Protocol tier to install |
 | `--scope` | `project`, `global` | `project` | Install location |
 | `--platform` | `agents`, `claude`, or comma-separated | `agents` | Platform(s) to install to |
+| `--seed` | seed id or `none` | `none` | Seeding strategy to activate (e.g. `initialvalue-seeding`) |
 | `--no-interactive` | (flag) | `false` | Skip prompts, use flags + defaults |
 | `--help` | (flag) | - | Show help text |
 
@@ -141,13 +146,13 @@ If different tiers are installed across platforms (e.g., `required` in `.agents/
 
 #### Repair Command
 
-If you encounter multi-tier installation issues (e.g., from using `npx skills add`), use the repair command:
+If you encounter multi-tier or multi-seed installation issues (e.g., from using `npx skills add`), use the repair command:
 
 ```bash
 npx @extragraj/stackshift-skills repair
 ```
 
-This scans for multiple protocol bundles and helps you keep only one.
+This scans for multiple protocol bundles and seed folders, helps you keep only one of each, and syncs `.stackshift/installed.json` to match.
 
 ---
 
@@ -183,8 +188,10 @@ After installing via Option A or B:
 |---------|----------------------------|---------------------------|
 | **Tier enforcement** | Manual | Automatic |
 | **Core installation** | Manual | Automatic |
-| **Physical cleanup** | No | Yes |
+| **Seed activation** | Manual (`npx init` after) | Automatic (guided prompt) |
+| **Physical cleanup** | No | Yes (protocol bundles only) |
 | **Multi-tier prevention** | No | Yes |
+| **Multi-seed prevention** | No (use `repair`) | Yes |
 | **Automation support** | Limited | Full (`--no-interactive`) |
 | **Platforms supported** | `agents`, `claude` | `agents`, `claude` |
 
@@ -328,7 +335,10 @@ After bootstrap, protocols can be customized and extended by editing files in `/
 - Empty by default; add as needed
 
 **Seeds** (Not Customizable)
-- Standard strategies loaded from skill when needed
+- Seeding strategies live in `stackshift-core/seeds/`; their content cannot be overridden at the project level
+- Activate a seed via `npx @extragraj/stackshift-skills init` or `--seed <id>` flag
+- Only ONE seed may be active at a time (recorded in `.stackshift/installed.json` → `seed`)
+- Available seeds: `initialvalue-seeding` — extracts copy from HTML mockups into `initialValue/index.ts`
 
 **Workflow** (Not Customizable)
 - Workflow steps remain in skill (`stackshift-core/workflow/`)
@@ -485,7 +495,7 @@ stackshift-workflow-skills/
 │   │   ├── workflow/             # 5 step files and checklist (loaded on demand)
 │   │   ├── protocols/            # 15 protocols (14 single-file + 1 dir) and _registry.json
 │   │   ├── references/           # Lookup tables (field factories, GROQ, types, versions, claude-design-roundtrip)
-│   │   ├── seeds/                # Seeding strategies and _registry.json (empty in v0.1.9)
+│   │   ├── seeds/                # Canonical seed strategy content + _registry.json
 │   │   └── bootstrap/            # First-run install flow and modes
 │   │
 │   ├── stackshift-protocols-required/
@@ -494,8 +504,11 @@ stackshift-workflow-skills/
 │   ├── stackshift-protocols-recommended/
 │   │   └── SKILL.md              # Index: 4 required + 5 recommended
 │   │
-│   └── stackshift-protocols-full/
-│       └── SKILL.md              # Index: all tiers
+│   ├── stackshift-protocols-full/
+│   │   └── SKILL.md              # Index: all tiers
+│   │
+│   └── stackshift-seed-initialvalue/
+│       └── SKILL.md              # Discoverable stub → points to stackshift-core/seeds/
 │
 └── cli/                          # Interactive installer (npx @extragraj/stackshift-skills init)
     ├── package.json              # CLI package (stackshift-cli)
@@ -511,8 +524,9 @@ stackshift-workflow-skills/
 ```
 
 **Architecture Notes:**
-- `stackshift-core` contains all protocols, workflow steps, and references
+- `stackshift-core` contains all protocols, workflow steps, references, and canonical seed content
 - Protocol tier bundles (`required/recommended/full`) contain only `SKILL.md` index files
+- Seed skill folders (`stackshift-seed-*`) contain only a `SKILL.md` reference stub pointing to `stackshift-core/seeds/`; canonical content stays in `stackshift-core`
 - CLI is a separate workspace package (`cli/`) built with TypeScript
 - Version sync script maintains consistency across `skill.version`, `package.json`, `cli/package.json`, and `README.md`
 
@@ -642,6 +656,18 @@ vim skills/stackshift-core/protocols/new-protocol.md   # Edit skill files
 echo "0.2.1" > skill.version
 pnpm sync-version         # Syncs version across package.json files
 pnpm publish              # Builds and publishes (prepack hook runs automatically)
+```
+
+**Adding a new seed strategy:**
+```bash
+# 1. Create canonical content
+vim skills/stackshift-core/seeds/my-strategy.md
+# 2. Create discoverable stub
+mkdir skills/stackshift-seed-mystrategy
+vim skills/stackshift-seed-mystrategy/SKILL.md
+# 3. Register in seeds/_registry.json
+# 4. Build and test
+pnpm build && node -e "const { loadSeedRegistry } = await import('./cli/dist/registry.js'); console.log(loadSeedRegistry())"
 ```
 
 ### Published Package Contents

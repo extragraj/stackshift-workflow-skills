@@ -139,6 +139,7 @@ Do not load these preemptively. Load only when the current workflow step or erro
 | Claude Design round-trip workflow | `references/claude-design-roundtrip.md` |
 | StackShift ↔ UI Forge handshake (markers, flag refusals, contract handoff) | `protocols/paired-mode-contract.md` |
 | A protocol (required / recommended / optional convention) | See "Protocol Discovery" below |
+| Active seeding strategy | `seeds/<file>` from skill (see `seeds/_registry.json`) — see "Seed Discovery" below |
 | A custom reference lookup | `/docs/references/<name>.md` (project), else `references/<name>.md` (skill) |
 
 ### Protocol Discovery
@@ -169,6 +170,15 @@ A protocol entry can be:
 - **Directory** (multiple files) — Complex protocols with sub-docs, schemas, or templates
 
 Use `_template/` as starting point for directory-based protocols.
+
+### Seed Discovery
+
+1. Read `.stackshift/installed.json` → check for `seed` field.
+2. If present, look up the matching entry in `seeds/_registry.json` by `id`.
+3. Load `seeds/<file>` from the skill folder.
+4. Seeds are step-scoped — load only when the relevant step is active:
+   - `initialvalue-seeding` → load at Step 2 before writing any `initialValue/` file.
+5. **Only one seed is ever active.** If `installed.json` has no `seed` field, skip seed loading.
 
 ### Reference Augmentation
 

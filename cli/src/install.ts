@@ -99,6 +99,17 @@ interface LockFile {
   skills: LockEntry[];
 }
 
+function readExistingSeed(): string | undefined {
+  const markerPath = join(process.cwd(), '.stackshift', 'installed.json');
+  if (!pathExistsSync(markerPath)) return undefined;
+  try {
+    const data = readJsonSync(markerPath) as { seed?: string };
+    return data.seed ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function readLockFile(scope: 'project' | 'global', platform: 'agents' | 'claude'): LockFile | null {
   const baseDir = platform === 'agents' ? '.agents' : '.claude';
   const lockPath = scope === 'global'
@@ -123,22 +134,28 @@ export async function install(): Promise<void> {
     process.exit(0);
   }
 
+  // Show intro before registry load so it always appears first
+  const isInteractive = !flags.noInteractive && !hasRequiredFlags(flags);
+  if (isInteractive) {
+    intro('StackShift Skills Installation');
+  }
+
   // Load registry (needed for both interactive and non-interactive)
   const s = spinner();
-  s.start('Loading skill registry');
+  s.start('Loading registry...');
   const skills = loadSkills();
   const protocolRegistry = loadProtocolRegistry();
   s.stop('Registry loaded');
 
   // Non-interactive mode
-  if (flags.noInteractive || hasRequiredFlags(flags)) {
+  if (!isInteractive) {
     const choices = validateFlags(flags);
     if (!choices) {
       process.exit(1);
     }
 
     const s2 = spinner();
-    s2.start('Installing skills');
+    s2.start('Installing...');
     const results = writeSelection(choices, skills, protocolRegistry.protocols);
     s2.stop('Installation complete');
 
@@ -169,8 +186,7 @@ export async function install(): Promise<void> {
     return;
   }
 
-  // Interactive mode
-  intro('stackshift init — install StackShift skills');
+  // Interactive mode — intro already shown above
 
   // Check for existing protocol bundle across all platforms
   const agentsLock = readLockFile('project', 'agents');
@@ -199,15 +215,18 @@ export async function install(): Promise<void> {
     );
   }
 
+  const existingSeed = readExistingSeed();
+
   const choices = await runPrompts(
     protocolRegistry.protocols,
     skills,
-    protocolRegistry.seeds.length,
+    protocolRegistry.seeds,
     existingProtocolBundle,
+    existingSeed,
   );
 
   const s3 = spinner();
-  s3.start('Installing skills');
+  s3.start('Installing...');
   const results = writeSelection(choices, skills, protocolRegistry.protocols);
   s3.stop('Installation complete');
 
