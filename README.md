@@ -268,20 +268,15 @@ All 15 registered protocols, organized by tier:
 
 ## Seeding Strategies
 
-Seeding strategies pre-fill `initialValue/` with realistic placeholder content for Sanity Studio authors. Without initial values, every section variant opens as an empty form — a poor authoring experience. A seed strategy automates the extraction and mapping work so authors see real-looking content from day one.
+A seeding strategy is a reusable instruction set that guides the AI in populating or scaffolding a specific aspect of a StackShift project. Strategies are scoped to particular workflow steps and output areas — one strategy may address placeholder content, another may target schema field patterns, type shapes, or GROQ fragments.
 
-### How Seeds Work
-
-1. Activate a seed strategy during `npx @extragraj/stackshift-skills init` (prompted after protocol tier) or via `--seed <id>`.
-2. The selection is recorded in `.stackshift/installed.json` → `seed`.
-3. When the AI reaches Step 2 (Section Schema), it reads the `seed` field, loads the matching strategy from `stackshift-core/seeds/`, and follows it before writing any `initialValue/` file.
-4. **Only one seed strategy may be active at a time.** The `seed` key in `installed.json` is the single source of truth. Running `init` again replaces it; running `repair` resolves accidental multi-seed installs.
+The active strategy is recorded in `.stackshift/installed.json` → `seed` and loaded by the AI when it reaches the relevant step. **Only one strategy may be active at a time.** Running `init` again replaces it; running `repair` resolves accidental multi-seed installs.
 
 ### Available Seed Strategies
 
-| Strategy | ID | Applies to | What it does |
-|----------|----|-----------|--------------|
-| **Initial-Value Seeding** | `initialvalue-seeding` | Step 2 — `initialValue/` | Extracts all text from an HTML mockup or hardcoded component and maps each piece to the matching field in `schema/index.ts`. Writes realistic copy into `initialValue/index.ts` or per-variant files. Images and references are intentionally omitted (editors upload manually). |
+| Strategy | ID | Applies to | Description |
+|----------|----|-----------|-------------|
+| **Initial-Value Seeding** | `initialvalue-seeding` | Step 2 — `initialValue/` | Extracts content from an HTML mockup or hardcoded component and maps it to the corresponding schema fields, writing realistic placeholder copy for Sanity Studio authors. |
 
 ### Activating a Seed
 
@@ -304,7 +299,7 @@ npx @extragraj/stackshift-skills init --seed none --no-interactive
 
 ### Seed Discovery
 
-`stackshift-seed-*` packages are discoverable via `npx skills add` (Vercel). They are reference stubs — all strategy content lives in `stackshift-core/seeds/`. Installing the stub folder does not activate the seed; you must run `init` to record it in `installed.json`.
+`stackshift-seed-*` packages are discoverable via `npx skills add` (Vercel). They are reference stubs — all strategy content lives in `stackshift-core/seeds/`. Installing a stub folder does not activate the seed; activation requires recording the selection in `installed.json` via `init`.
 
 ---
 
