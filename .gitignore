@@ -15,3 +15,6 @@ cli/yarn.lock
 # OS files
 .DS_Store
 *.log
+
+# Temp Files
+temp/

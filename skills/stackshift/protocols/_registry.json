@@ -1,0 +1,230 @@
+{
+  "$schema": "../_registry.schema.json",
+  "description": "Registry of StackShift protocols. Each entry has a tier that drives install mode selection and is materialized to .stackshift/protocols/<file or dir> during bootstrap. Entries may be a single file (`file`) or a directory (`dir`) — directories are copied recursively. The optional `action` and `doneWhen` fields are injected by the CLI into each workflow step's CLI:PROTOCOLS marker region; only the action / done-when entries for protocols actually installed are emitted. The optional `references` array lists reference files in `references/` that are tied to this protocol — the CLI prunes them from the install destination when the protocol is not installed.",
+  "tiers": {
+    "required": "Workflow cannot function correctly without it — violations cause build errors, runtime errors, or schema load failures.",
+    "recommended": "Quality and UX — no errors if omitted, but Sanity Studio or author experience suffers noticeably.",
+    "optional": "Opt-in systems that introduce their own architecture, dependencies, or directory structure. Only install if the project adopts the system."
+  },
+  "protocols": [
+    {
+      "id": "factory-function-pattern",
+      "tier": "required",
+      "file": "factory-function-pattern.md",
+      "title": "Factory Function Pattern",
+      "summary": "Required shape for every new field factory. Plain objects, no defineField() wrappers. Wrong shape breaks hideInVariants at runtime.",
+      "action": {
+        "title": "Use the factory function pattern for any new field",
+        "body": "Return a plain object. No `defineField()` / `defineType()` wrappers. Always set `_hideInVariants: hidden && hideInVariants`.\n\nSee `.stackshift/protocols/factory-function-pattern.md` for the canonical shape."
+      },
+      "doneWhen": [
+        "New fields follow the factory function pattern",
+        "Plain object syntax — no `defineField()` wrappers"
+      ]
+    },
+    {
+      "id": "sub-field-visibility",
+      "tier": "required",
+      "file": "sub-field-visibility.md",
+      "title": "Sub-Field Visibility",
+      "summary": "Hiding sub-fields within a shared object without duplicate field names. Duplicates cause Sanity to reject the schema on load.",
+      "action": {
+        "title": "Never create duplicate field names at the section level",
+        "body": "If only a specific sub-field of a shared object should be hidden for certain variants, apply `hidden` directly on the sub-field. A duplicate field name at section level causes Sanity to reject the schema on load.\n\nSee `.stackshift/protocols/sub-field-visibility.md`."
+      },
+      "doneWhen": [
+        "No duplicate field names at section level (sub-field visibility handled on the sub-field)"
+      ]
+    },
+    {
+      "id": "variant-router",
+      "tier": "required",
+      "file": "variant-router.md",
+      "title": "Variant Router (index.tsx)",
+      "summary": "Rules for the section index.tsx. Missing props interface export breaks the variant file's TypeScript compile.",
+      "action": {
+        "title": "Honor the variant-router contract in `index.tsx`",
+        "body": "- Function signature is `{ data }: SectionsProps` — not a custom props type.\n- Every field uses `?? undefined`.\n- Render `null` when `data?.variant` is absent. **Never** hardcode a fallback.\n- The section props interface must be exported from `index.tsx` so the variant file can import it from `\".\"`.\n\nSee `.stackshift/protocols/variant-router.md` for the full pattern."
+      },
+      "doneWhen": [
+        "Props interface defined and exported from `index.tsx`",
+        "Props extracted with `?? undefined` for every field",
+        "No hardcoded fallback variant"
+      ]
+    },
+    {
+      "id": "one-time-custom-schema-setup",
+      "tier": "required",
+      "file": "one-time-custom-schema-setup.md",
+      "title": "One-Time Custom Schema Setup",
+      "summary": "Project-level setup to enable custom local variants. Without it, custom sections never appear in Studio. Run once per project.",
+      "action": {
+        "title": "Verify one-time custom schema setup is complete",
+        "body": "If the project's custom schema merge has not been wired up, follow `.stackshift/protocols/one-time-custom-schema-setup.md` ONCE, then never again. Without this, any new section you add in Step 2 will not appear in Sanity Studio."
+      },
+      "doneWhen": [
+        "One-time custom schema setup has been completed for this project"
+      ]
+    },
+    {
+      "id": "field-reuse-first",
+      "tier": "recommended",
+      "file": "field-reuse-first.md",
+      "title": "Field Reuse First",
+      "summary": "Check local and base-package field factories before creating any new field. Duplication works but pollutes the schema.",
+      "action": {
+        "title": "Reuse existing fields first",
+        "body": "Check the local `fields.ts`, then base package, then dynamic factories before creating anything new. See `.stackshift/protocols/field-reuse-first.md`."
+      },
+      "doneWhen": [
+        "Reuse check performed before creating new fields"
+      ]
+    },
+    {
+      "id": "hide-if-variant",
+      "tier": "recommended",
+      "file": "hide-if-variant.md",
+      "title": "Hide If Variant",
+      "summary": "Use hideIfVariantIn() to exclude fields from specific variants. Authors otherwise see irrelevant fields — no error, just bad UX.",
+      "action": {
+        "title": "Apply `hideIfVariantIn([])` when adding a variant",
+        "body": "Walk every field in `schema/index.ts` and exclude the new variant from any field it does not use. See `.stackshift/protocols/hide-if-variant.md`."
+      },
+      "doneWhen": [
+        "`hideIfVariantIn([])` updated for the new variant on every unused field"
+      ]
+    },
+    {
+      "id": "preview-conventions",
+      "tier": "recommended",
+      "file": "preview-conventions.md",
+      "title": "Preview Conventions",
+      "summary": "Preview blocks for arrays and objects. Image vs icon fallback decision tree. Missing previews don't error — Studio just looks empty.",
+      "action": {
+        "title": "Add a `preview` block to every array of objects and every object field",
+        "body": "Image or icon fallback, `prepare()` always returning a non-empty `title`. See `.stackshift/protocols/preview-conventions.md`."
+      },
+      "doneWhen": [
+        "Every new array-of-objects and object field has a `preview` block"
+      ]
+    },
+    {
+      "id": "array-layout",
+      "tier": "recommended",
+      "file": "array-layout.md",
+      "title": "Array Layout Conventions",
+      "summary": "Grid / tags / collapsible layout options for different array content types. Author UX only.",
+      "action": {
+        "title": "Pick the right `options.layout` for arrays",
+        "body": "`grid` for images, `tags` for string arrays, collapsible for navs. See `.stackshift/protocols/array-layout.md`."
+      },
+      "doneWhen": [
+        "Array fields use the appropriate `options.layout`"
+      ]
+    },
+    {
+      "id": "section-directory-layout",
+      "tier": "recommended",
+      "file": "section-directory-layout.md",
+      "title": "Section Directory Layout",
+      "summary": "initialValue/ and images/ directories for placeholder content and variant thumbnails. No errors if omitted — just poor author onboarding.",
+      "action": {
+        "title": "Populate `initialValue/` and `images/`",
+        "body": "- Populate `initialValue/` with placeholder content for every variant. Empty forms are a poor author experience.\n- Populate `images/` with one preview thumbnail per variant, named to match the variant's `value`.\n\nSee `.stackshift/protocols/section-directory-layout.md`."
+      },
+      "doneWhen": [
+        "`initialValue/` populated for every variant",
+        "`images/` has one thumbnail per variant, named to match the variant `value`"
+      ]
+    },
+    {
+      "id": "accessibility",
+      "tier": "recommended",
+      "file": "accessibility.md",
+      "title": "Accessibility",
+      "summary": "WCAG 2.1 AA enforcement. When installed, UI Forge generates variants with semantic HTML, accessible names, focus visibility, and reduced-motion handling.",
+      "action": {
+        "title": "Require the A11Y FORGE NOTES sub-block",
+        "body": "When invoking `ui-forge`, accessibility rules apply automatically (the bridged `_paired.a11yRequired` flag). After generation, confirm the FORGE NOTES header contains an `A11Y` sub-block. See `.stackshift/protocols/accessibility.md`."
+      },
+      "doneWhen": [
+        "`// FORGE NOTES` header contains an `A11Y` sub-block"
+      ]
+    },
+    {
+      "id": "brand",
+      "tier": "optional",
+      "file": "brand.md",
+      "title": "Brand",
+      "summary": "Registers a project brand document so UI Forge applies voice, palette, typography, and imagery rules during variant generation.",
+      "action": {
+        "title": "Require the BRAND FORGE NOTES sub-block",
+        "body": "UI Forge consumes `design/standards/brand.md` automatically via the `designStandards.brand` pointer. After generation, confirm the FORGE NOTES header contains a `BRAND` sub-block. See `.stackshift/protocols/brand.md`."
+      },
+      "doneWhen": [
+        "`// FORGE NOTES` header contains a `BRAND` sub-block"
+      ]
+    },
+    {
+      "id": "paired-mode-contract",
+      "tier": "recommended",
+      "file": "paired-mode-contract.md",
+      "title": "Paired-Mode Contract",
+      "summary": "Canonical handshake doc between StackShift and UI Forge — skill-root resolution, marker fields, flag refusal matrix, modifier composition, contract version dance.",
+      "action": {
+        "title": "Honor the paired-mode contract when invoking `ui-forge`",
+        "body": "UI Forge refuses these flags in paired mode: `--creative`, `--diff`, `--preview`. The contract-first handoff and these modes are mutually exclusive by design. For iterative regeneration of a completed variant, run UI Forge standalone with `--diff` outside the StackShift workflow.\n\nSee `.stackshift/protocols/paired-mode-contract.md` for the full refusal matrix, modifier composition rules, marker fields, and the contract version handshake."
+      },
+      "doneWhen": [
+        "No paired-mode-refused flags passed to `ui-forge` (`--creative`, `--diff`, `--preview`)"
+      ]
+    },
+    {
+      "id": "claude-design-handoff",
+      "tier": "optional",
+      "file": "claude-design-handoff.md",
+      "title": "Claude Design Handoff",
+      "summary": "Allows Step 4 variants to be generated from a Claude Design handoff URL via UI Forge's --handoff flag and the round-trip workflow. Requires UI Forge ≥ 0.1.9.",
+      "references": ["claude-design-roundtrip.md"],
+      "action": {
+        "title": "Require the CLAUDE_DESIGN FORGE NOTES sub-block when `--handoff` is used",
+        "body": "When the variant is generated from a Claude Design handoff URL via UI Forge's `--handoff` flag, confirm the FORGE NOTES header contains a `CLAUDE_DESIGN` sub-block documenting source URL, task summary, and token remappings. No tokens from the handoff may appear inline in the generated TSX. See `.stackshift/protocols/claude-design-handoff.md`."
+      },
+      "doneWhen": [
+        "When `--handoff` was used: FORGE NOTES contains a `CLAUDE_DESIGN` sub-block",
+        "When `--handoff` was used: No tokens from the handoff appear inline in the generated TSX (every color/spacing value resolves to a `design-arch.json` token name)"
+      ]
+    },
+    {
+      "id": "auto-verify-hook",
+      "tier": "optional",
+      "file": "auto-verify-hook.md",
+      "title": "Auto-Verify Hook (PostToolUse)",
+      "summary": "Installs a Claude Code PostToolUse hook that runs UI Forge's verify.js on every variant write. Requires UI Forge ≥ 0.1.9.",
+      "keywords": ["auto verify", "verify hook", "posttooluse", "verify on save"],
+      "action": {
+        "title": "Use the PostToolUse hook for structural postconditions",
+        "body": "The PostToolUse hook fires automatically on the variant write and runs UI Forge's `verify.js` (which delegates to `validate.js` from `@extragraj/variant-contract`). The structural postcondition becomes \"hook exit code 0\" — no separate command. The manual `validate-contract.js` invocation remains valid as a backup. See `.stackshift/protocols/auto-verify-hook.md`."
+      },
+      "doneWhen": [
+        "Auto-verify-hook exit code is 0 on the most recent variant write"
+      ]
+    },
+    {
+      "id": "auto-validate-hook",
+      "tier": "optional",
+      "file": "auto-validate-hook.md",
+      "title": "Auto-Validate Hook (PostToolUse)",
+      "summary": "Installs a Claude Code PostToolUse hook that runs `stackshift-skills validate` on every Write/Edit. Statically enforces factory-function-pattern, sub-field-visibility, variant-router, and preview-conventions invariants on schema and section-router writes.",
+      "keywords": ["auto validate", "validate hook", "protocol enforcement", "lint on save"]
+    },
+    {
+      "id": "modal-sheet",
+      "tier": "optional",
+      "dir": "modal-sheet",
+      "title": "Modal & Sheet",
+      "summary": "Standalone modal documents linked via conditionalLink. Editors pick a modal ref; clicking opens a @stackshift-ui/sheet or @stackshift-ui/dialog overlay instead of navigating. One-time setup + per-variant workflow with UI Forge delegation.",
+      "keywords": ["modal", "dialog", "sheet", "overlay", "popup", "conditional link", "modal ref"]
+    }
+  ]
+}

@@ -1,18 +1,12 @@
 # StackShift Workflow Skill
 
-> **Version** 0.2.5
+> **Version** 0.7.2
 
 A structured agentic skill for building sections and variants inside StackShift, a composable Sanity v3 and Next.js page-builder. Enforces a strict 5-step implementation workflow, governs quality through a tiered protocol system, supports seed strategies, and delegates component rendering to the `ui-forge` companion skill.
 
 ---
 
 ## Installation
-
-Two installation methods are available. The `stackshift-core` package is required in all cases.
-
-### Option A — Interactive CLI (Recommended)
-
-An interactive command-line interface that handles tier selection, platform selection (supports multiple), install scope, and bootstrap materialization in a single guided flow. Prevents multi-tier conflicts and provides proper tier management.
 
 ```bash
 # Interactive installation (recommended)
@@ -24,14 +18,13 @@ npx @extragraj/stackshift-skills init --no-interactive
 # Non-interactive with specific options
 npx @extragraj/stackshift-skills init --tier full --scope project --platform agents,claude --no-interactive
 
-# Non-interactive with seed strategy
+# Non-interactive with a seed strategy
 npx @extragraj/stackshift-skills init --seed initialvalue-seeding --no-interactive
-
-# Non-interactive with deferred bootstrap (all steps on first AI invocation)
-npx @extragraj/stackshift-skills init --tier recommended --no-materialize --no-interactive
 ```
 
-**Available Flags:**
+The CLI performs the full bootstrap end-to-end — protocol materialization, project infrastructure, `design/standards/` seeding, `.forgeignore`, and UI Forge integration — in a single pass. There is no deferred-to-agent mode; on first AI invocation the agent simply checks that `.stackshift/installed.json` is present and proceeds to the workflow.
+
+### Flags
 
 | Flag | Values | Default | Description |
 |------|--------|---------|-------------|
@@ -39,66 +32,54 @@ npx @extragraj/stackshift-skills init --tier recommended --no-materialize --no-i
 | `--scope` | `project`, `global` | `project` | Install location |
 | `--platform` | `agents`, `claude`, `copilot`, `gemini`, `cursor`, or comma-separated | `agents` | Platform(s) to install to |
 | `--seed` | seed id or `none` | `none` | Seeding strategy to activate (e.g. `initialvalue-seeding`) |
-| `--no-materialize` | (flag) | `false` | Skip CLI materialization; defer all steps to AI agent on first invocation |
 | `--no-interactive` | (flag) | `false` | Skip prompts, use flags + defaults |
 | `--help` | (flag) | - | Show help text |
 
-**Note:** Custom tier selection requires interactive mode (not supported with `--no-interactive`).
+**Note:** `custom` tier (interactive checkbox selection) requires interactive mode.
 
-#### Repair Command
+### Repair
 
-If you encounter multi-tier, multi-seed, or stale materialized protocol issues:
+If the install drifts (manual edits, partial runs, version upgrades):
 
 ```bash
 npx @extragraj/stackshift-skills repair
 ```
 
-This performs three reconciliation passes:
-1. **Protocol bundles** — scans for multiple `stackshift-protocols-*` folders across all platforms; prompts to keep one and removes the rest.
-2. **Seed folders** — scans for multiple `stackshift-seed-*` folders; prompts to keep one and removes the rest. Syncs `.stackshift/installed.json`.
-3. **Materialized protocols** — reconciles `.stackshift/protocols/` against `.stackshift/installed.json`. Removes orphaned files and restores missing recorded protocols.
+Repair runs four passes:
+1. **Legacy artifact purge** — removes any pre-0.3.0 `stackshift-protocols-*` folders, pre-0.5.1 `stackshift-seed-*` stub folders, and pre-0.6.0 `stackshift-core/` folders; strips legacy marker flags and lock entries. If `stackshift-core/` was present and `stackshift/` was not, the new folder is re-copied from the shipped skill source.
+2. **Seed validation** — checks that the `seed` recorded in `.stackshift/installed.json` matches a known strategy in the seed registry.
+3. **Materialized protocol reconciliation** — compares `.stackshift/protocols/` against `installed.json`. Removes orphans; restores missing recorded protocols.
+4. **Workflow marker injection** — rewrites the CLI:PROTOCOLS / CLI:SEED / CLI:CROSSCUT regions in the materialized `SKILL.md` and `workflow/*.md` from the current `installed.json`. This is the supported way to re-sync workflow files after hand-editing the marker.
 
----
+Repair is idempotent.
 
-### Option B — Vercel Skills Add
+### Validate
 
-Install skill packages directly using `npx skills add`:
+Statically check schemas and section routers for protocol violations:
 
 ```bash
-# Universal agents (.agents/skills/) — project only
-npx skills add extragraj/stackshift-workflow-skills -a agents
+# Lint the whole project
+npx @extragraj/stackshift-skills validate
 
-# Claude Code (.claude/skills/) — global
-npx skills add extragraj/stackshift-workflow-skills -g -a claude-code
+# Lint a single file (used by the auto-validate-hook PostToolUse hook)
+npx @extragraj/stackshift-skills validate --file components/sections/hero/index.tsx
 
-# Claude Code (.claude/skills/) — project only
-npx skills add extragraj/stackshift-workflow-skills -a claude-code
+# Machine-readable output (for CI)
+npx @extragraj/stackshift-skills validate --json
 ```
 
-**When using `npx skills add`, you MUST:**
-1. Always install `stackshift-core` (required for the workflow system)
-2. Install only **1 protocol tier bundle** — tiers are cumulative:
-   - `stackshift-protocols-required` (4 required protocols)
-   - `stackshift-protocols-recommended` (4 required + 7 recommended — default)
-   - `stackshift-protocols-full` (all tiers)
-3. Install only **1 seeding strategy** (optional). If you accidentally install multiple, run `npx @extragraj/stackshift-skills repair`, then `npx @extragraj/stackshift-skills init` to activate your chosen seed.
+The validator reads `.stackshift/installed.json` to learn which protocols are active. Each active protocol contributes static checks against `schemas/custom/**/*.ts` and `components/sections/**/index.tsx`. The command exits **1** on any `required`-tier finding (build-breaking patterns) and **0** otherwise — `recommended`-tier findings print as warnings without failing.
 
----
+Coverage:
 
-### Installation Method Comparison
+| Protocol | Static check |
+|---|---|
+| `factory-function-pattern` | No `defineField(` / `defineType(` calls inside factory files. |
+| `sub-field-visibility` | No duplicate `name: 'foo'` entries within a single section schema. |
+| `variant-router` | Exported `<Name>Props`, `?? undefined` extraction, `if (!Variant) return null;`, `{ data }: SectionsProps` signature. |
+| `preview-conventions` | Every `type: 'array'` / `type: 'object'` block has a `preview` key. |
 
-| Feature | Option A — Interactive CLI | Option B — Vercel Skills Add |
-|---------|---------------------------|----------------------------|
-| **Tier enforcement** | Automatic | Manual |
-| **Core installation** | Automatic | Manual |
-| **Seed activation** | Automatic (guided prompt) | Manual (`npx init` after) |
-| **Multi-tier prevention** | Yes | No (use `repair`) |
-| **Multi-seed prevention** | Yes | No (use `repair`) |
-| **Automation support** | Full (`--no-interactive`) | Limited |
-| **Platforms supported** | `agents`, `claude`, `copilot`, `gemini`, `cursor` | `agents`, `claude` |
-| **Bootstrap materialization** | Default (use `--no-materialize` to defer) | No (agent only) |
-
-**Note:** The `ui-forge` companion skill must be installed independently; StackShift bootstrap detects and integrates it automatically when present.
+The `auto-validate-hook` optional protocol wires this command as a Claude Code `PostToolUse` hook so violations are surfaced inline on every Write/Edit.
 
 ---
 
@@ -130,7 +111,11 @@ A tiered protocol system codifies team conventions:
 | **Recommended** | No errors, but Sanity Studio UX or developer experience degrades noticeably; workflow mentions but does not block |
 | **Optional** | Opt-in systems with dedicated architecture; applicable only if project adopts them |
 
-Runtime enforcement reads the `protocols` array from `.stackshift/installed.json`. Each workflow step loads only the protocols whose `id` appears in that array. If the file is absent or the array is missing, enforcement is a no-op.
+Runtime enforcement is **CLI-injected** as of 0.6.0. At `init` / `repair` time the CLI reads `.stackshift/installed.json`, intersects it with `protocols/_step-map.json`, and rewrites marker regions (`<!-- CLI:PROTOCOLS:BEGIN step=N -->`, `<!-- CLI:SEED:BEGIN -->`, `<!-- CLI:CROSSCUT:BEGIN -->`) in the materialized `SKILL.md` and every `workflow/*.md`. Each injected `CLI:PROTOCOLS` block contains: the installed-protocol list for the step, an `## Actions` section sourced from each protocol's `action` registry field, and a `## Done-when` checklist sourced from each protocol's `doneWhen`. The static workflow files contain only step-level structural content (decision tables, directory shapes, code examples) — protocol-specific guidance lives entirely in the marker. The agent never re-derives this at runtime and never sees content for uninstalled protocols.
+
+If `.stackshift/installed.json` is hand-edited to add or remove a protocol, the workflow files go stale until `repair`. Re-run `npx @extragraj/stackshift-skills repair` to refresh.
+
+Static enforcement is available via the `validate` command (see [Validate](#validate)). When the `auto-validate-hook` optional protocol is installed, the validator fires as a Claude Code `PostToolUse` hook on every Write/Edit — violations surface inline instead of relying on the agent to honor prose instructions.
 
 ### Output Files by Step
 
@@ -146,46 +131,42 @@ Runtime enforcement reads the `protocols` array from `.stackshift/installed.json
 
 ## Bootstrap
 
-Bootstrap materializes selected protocols and creates project infrastructure under `.stackshift/` to enable protocol customization and extension. It occurs in two phases:
+Bootstrap is CLI-only. `npx @extragraj/stackshift-skills init` performs every step in a single run. The agent never executes install logic — its `SKILL.md` Section 0 just checks for the marker file.
 
-**Phase 1: Materialization (CLI)** — Default behavior (`npx @extragraj/stackshift-skills init`)
-- Copies selected protocol files to `.stackshift/protocols/`
-- Creates project protocol registry and README
-- Creates `design/standards/stackshift-section-variants.md`
-- Writes `.forgeignore` defaults (creates if missing; appends if file already exists)
-- Sets `.stackshift/installed.json` with `"materializationDone": true`
+For the full reference, see [`CLI_BOOTSTRAP.md`](./CLI_BOOTSTRAP.md). High-level summary:
 
-**Phase 2: UI Forge Integration (AI)** — First invocation
-- Runs on all projects (materialized or deferred)
-- Detects UI Forge and scans project structure
-- Bridges designStandards to `design/design-arch.json`
-- Installs PostToolUse hook (if applicable)
+1. **Skill copy** — `stackshift` (renamed from `stackshift-core` in 0.6.0) is copied to every selected platform's `skills/` directory, then pruned so its `protocols/` and `seeds/` contain only the entries recorded in `.stackshift/installed.json`. Required-tier protocols are part of every install; recommended / optional / custom selections only land in the destination if chosen. The shipped repo `skills/stackshift/` remains the full catalog. Any pre-0.6.0 `stackshift-core/` folder at the install path is removed and replaced.
+2. **Protocol materialization** — selected protocols are copied to `.stackshift/protocols/`. Project edits at this location take precedence over skill defaults at every subsequent lookup.
+3. **Project infrastructure** — `.stackshift/protocols/_registry.json` (empty project registry), `.stackshift/protocols/_template/`, `.stackshift/references/`.
+4. **Design standards** — `design/standards/stackshift-section-variants.md` and (when `brand` is selected) `design/standards/brand.md`.
+5. **`.forgeignore`** — Sanity + Next.js + UI Forge defaults. Appends only missing sections to existing files.
+6. **UI Forge integration** — detects the UI Forge skill (7-path lookup), runs `scan.js` if `design-arch.json` is missing, bridges `designStandards`, writes the `_paired` mirror block, runs the optional `export-design.js`, installs the optional Claude Code `PostToolUse` hook.
+7. **Marker write** — `.stackshift/installed.json` with `skillVersion`, `installedAt`, `mode`, `protocols[]`, optional `seed` / `a11yRequired` / `uiForgeIntegration`.
+8. **Workflow injection** — CLI rewrites the CLI:PROTOCOLS / CLI:SEED / CLI:CROSSCUT marker regions in the materialized `SKILL.md` and every `workflow/*.md` so the agent sees only the protocols actually installed.
+9. **Injection map** — CLI writes `.stackshift/injection-map.json` listing, for every installed protocol, the workflow file paths and (where applicable) `SKILL.md` it was injected into. Regenerated on every `init` / `repair`.
 
-With `--no-materialize`, all steps run on first AI invocation instead.
-
-### Bootstrap Install Modes
+### Install Modes
 
 | Mode | Materialized Content |
 |------|---------------------|
-| **None** | Nothing. Skill falls back to bundled copies at lookup. |
 | **Required** | All `tier: required` protocols only. |
-| **Recommended** (default) | All required and recommended protocols. |
-| **All** | All registered protocols including optional. |
-| **Interactive** | Checkbox prompt with required and recommended pre-selected, optional unchecked. |
+| **Recommended** (default) | All `required` + `recommended` protocols. |
+| **Full** | All registered protocols including optional. |
+| **Custom** | Required (always) + checkbox selection of recommended/optional protocols. Interactive mode only. |
 
-### Project Customization Mechanism
+### Project Customization
 
-After bootstrap completion:
-1. **Protocol lookup priority:** `.stackshift/protocols/<id>.md` (project) → `protocols/<id>.md` (skill fallback)
-2. Project copies take precedence over bundled skill copies at every lookup
-3. Edits persist across skill updates; customizations are never overwritten
-4. Deleting a file from `.stackshift/protocols/` falls back to bundled default
+After bootstrap, the skill is pre-wired to read from your project's `.stackshift/protocols/` copies:
+
+1. **Workflow markers link to `.stackshift/protocols/<id>.md`** — every injected protocol reference in the workflow files points to the materialized project copy, not the bundled skill copy. Agents follow those links directly.
+2. **Edits persist across skill updates** — `repair` and `init` never overwrite `.stackshift/protocols/` files; they only update the skill's own `protocols/` directory.
+3. **Custom protocols** registered in `.stackshift/protocols/_registry.json` are discovered via the Protocol Discovery chain in `SKILL.md` Section 3 when the agent needs a protocol that is not listed in the injected workflow markers.
 
 ---
 
 ## Protocols
 
-All 15 registered protocols, organized by tier:
+All registered protocols, organized by tier:
 
 | Protocol | Tier | Applies to | Description |
 |----------|------|-----------|-------------|
@@ -198,12 +179,13 @@ All 15 registered protocols, organized by tier:
 | Preview Conventions | recommended | Step 1 | `preview` block with `prepare()` on array-of-objects and object fields. |
 | Array Layout | recommended | Step 1 | `grid` for image arrays, `tags` for string arrays, `collapsible` for nav arrays. |
 | Section Directory Layout | recommended | Step 2 | `initialValue/` with placeholder copy and `images/` with variant thumbnails. |
-| Accessibility | recommended | Step 4 | WCAG 2.1 AA enforcement via UI Forge's `SIGNAL_A11Y`. Writes `a11yRequired: true` to bootstrap marker. |
-| Paired-Mode Contract | recommended | Cross-cutting | Canonical reference for the StackShift ↔ UI Forge handshake: skill-root resolution, marker fields, `_paired` mirror block, flag refusal matrix, modifier composition, contract version handoff. |
-| Brand | optional | Step 4 | Registers a project brand document so UI Forge applies voice, palette, typography, and imagery rules via `SIGNAL_BRAND`. |
-| Claude Design Handoff | optional | Step 4 | Activates UI Forge's `+CLAUDE_DESIGN` modifier and `--handoff <url>` flag. Permits a Claude Design URL as a layout source (mutually exclusive with HTML/TSX refs). |
-| Auto-Verify Hook | optional | Step 4 | Wires UI Forge's `verify.js` single-arg mode as a Claude Code `PostToolUse` hook. Every `.tsx` write triggers automatic contract validation. Claude Code only. |
-| Modal & Sheet | optional | Steps 2, 4, 5 | Standalone modal documents linked via `conditionalLink`. Clicking a `linkModal` link opens a `@stackshift-ui/sheet` or `@stackshift-ui/dialog` overlay. |
+| Accessibility | recommended | Step 4 | WCAG 2.1 AA enforcement via UI Forge's `SIGNAL_A11Y`. Writes `a11yRequired: true` to the marker. |
+| Paired-Mode Contract | recommended | Cross-cutting | Canonical reference for the StackShift ↔ UI Forge handshake. |
+| Brand | optional | Step 4 | Registers a project brand document so UI Forge applies voice, palette, typography, and imagery rules. |
+| Claude Design Handoff | optional | Step 4 | Activates UI Forge's `+CLAUDE_DESIGN` modifier and `--handoff <url>` flag. |
+| Auto-Verify Hook | optional | Step 4 | Wires UI Forge's `verify.js` as a Claude Code `PostToolUse` hook. Claude Code only. |
+| Auto-Validate Hook | optional | Steps 1, 2, 3, 4 | Wires `stackshift-skills validate` as a Claude Code `PostToolUse` hook. Statically enforces factory-function, sub-field-visibility, variant-router, and preview-conventions invariants on every Write/Edit. Claude Code only. |
+| Modal & Sheet | optional | Steps 2, 4, 5 | Standalone modal documents linked via `conditionalLink`, opened as a sheet or dialog overlay. |
 
 ---
 
@@ -217,12 +199,16 @@ After bootstrap, protocols can be customized and extended by editing files in `.
 |------|----------|---------------|
 | **Protocols** | `.stackshift/protocols/` | ✅ Edit materialized protocols; add custom ones via `_registry.json` |
 | **References** | `.stackshift/references/` | ✅ Add custom lookup tables for project-specific protocols |
-| **Seeds** | `stackshift-core/seeds/` | ❌ Content cannot be overridden at project level |
-| **Workflow** | `stackshift-core/workflow/` | ❌ 5-step sequence is fixed |
+| **Seeds** | `stackshift/seeds/` | ❌ Content cannot be overridden at project level |
+| **Workflow** | `stackshift/workflow/` | ❌ 5-step sequence is fixed; CLI rewrites protocol/seed marker regions at install |
+
+### Editing an Installed Protocol
+
+Open the materialized copy at `.stackshift/protocols/<id>.md` and edit freely. Because the injected workflow markers link directly to `.stackshift/protocols/`, the agent reads your edited version on the next run. `repair` and `init` never overwrite these files.
 
 ### Adding a Custom Protocol
 
-**Single-file:** Create `.stackshift/protocols/custom-protocol.md` with frontmatter (id, tier, applies-to), then register in `.stackshift/protocols/_registry.json`:
+**Single-file:** Create `.stackshift/protocols/custom-protocol.md`, then register it in `.stackshift/protocols/_registry.json`:
 ```json
 {
   "protocols": [{
@@ -235,6 +221,8 @@ After bootstrap, protocols can be customized and extended by editing files in `.
 }
 ```
 
+The agent discovers custom protocols via the Protocol Discovery chain in `SKILL.md` Section 3: when it needs a protocol not listed in the injected workflow markers, it merges the project registry with the skill registry and loads from `.stackshift/protocols/` first.
+
 **Multi-file:** Copy `.stackshift/protocols/_template/` to a new directory, edit files, and register with `"dir": "custom-protocol/"` instead of `"file"`.
 
 ### File Structure After Bootstrap (Recommended mode)
@@ -242,7 +230,7 @@ After bootstrap, protocols can be customized and extended by editing files in `.
 ```
 your-project/
 ├── .stackshift/
-│   ├── installed.json          # Bootstrap marker (mode, protocols, seed, skillVersion, installedAt, a11yRequired, uiForgeIntegration)
+│   ├── installed.json          # Marker: mode, protocols, seed, skillVersion, installedAt, a11yRequired, uiForgeIntegration
 │   ├── protocols/
 │   │   ├── _registry.json      # Project protocol registry
 │   │   ├── _template/          # Template for multi-file protocols
@@ -261,12 +249,12 @@ your-project/
 │       └── README.md
 ├── .forgeignore                # Scan exclusions
 └── design/
-    ├── design-arch.json        # UI Forge-owned
+    ├── design-arch.json        # UI Forge-owned (CLI writes designStandards + _paired)
     └── standards/
         └── stackshift-section-variants.md
 ```
 
-Optional protocols (`brand`, `claude-design-handoff`, `auto-verify-hook`, `modal-sheet`) materialize only when the `Full` or `Interactive` install mode selects them.
+Optional protocols (`brand`, `claude-design-handoff`, `auto-verify-hook`, `modal-sheet`) materialize only when `Full` or `Custom` mode selects them.
 
 ---
 
@@ -316,16 +304,13 @@ stackshift-workflow-skills/
 ├── pnpm-workspace.yaml           # pnpm workspace configuration
 ├── package.json                  # Root package (@extragraj/stackshift-skills)
 ├── CLAUDE.md                     # Project instructions for AI coding tools
+├── CLI_BOOTSTRAP.md              # Human reference for the CLI install flow (not shipped)
 ├── bin/
 │   └── cli.mjs                   # Published CLI entry point
 ├── scripts/
 │   └── sync-version.mjs          # Syncs skill.version to package.json, cli/package.json, README.md
 ├── skills/
-│   ├── stackshift-core/          # Main skill: SKILL.md, workflow/, protocols/, references/, seeds/, bootstrap/
-│   ├── stackshift-protocols-required/    # Index: 4 required protocols
-│   ├── stackshift-protocols-recommended/ # Index: 4 required + 7 recommended
-│   ├── stackshift-protocols-full/        # Index: all tiers
-│   └── stackshift-seed-initialvalue/     # Discoverable stub → points to stackshift-core/seeds/
+│   └── stackshift/               # Main skill: SKILL.md, workflow/, protocols/, references/, seeds/ (renamed from stackshift-core in 0.6.0)
 ├── cli/                          # Interactive installer (TypeScript)
 │   ├── package.json
 │   ├── tsconfig.json
@@ -334,10 +319,12 @@ stackshift-workflow-skills/
 ```
 
 **Architecture Notes:**
-- `stackshift-core` contains all protocols, workflow steps, references, and canonical seed content
-- Protocol tier bundles contain only `SKILL.md` index files
-- Seed skill folders contain only a `SKILL.md` reference stub; canonical content stays in `stackshift-core`
+- `stackshift` (renamed from `stackshift-core` in 0.6.0) contains all protocols, workflow steps, references, and canonical seed content
+- Workflow files contain CLI-managed marker regions (`<!-- CLI:PROTOCOLS:BEGIN step=N -->`, `<!-- CLI:SEED:BEGIN -->`) rewritten by `init` / `repair` from `.stackshift/installed.json` and `protocols/_step-map.json`. The injected CLI:PROTOCOLS body includes the installed-protocol list plus per-protocol `## Actions` and `## Done-when` content sourced from each protocol's registry entry — the agent never sees content for uninstalled protocols and never reads `installed.json` to discover what is active
+- `.stackshift/injection-map.json` records, per installed protocol, the workflow files (and `SKILL.md`) the CLI injected it into — regenerated on every `init` / `repair`
+- Seed strategies have no separate skill folder; the active id is recorded in `.stackshift/installed.json` `seed` and the canonical content stays in `stackshift/seeds/`
 - CLI is a separate workspace package (`cli/`) built with TypeScript
+- No `bootstrap/` folder ships with the skill; install behavior lives entirely in `cli/src/writer.ts`
 
 ---
 
@@ -393,10 +380,10 @@ pnpm install && pnpm build && npx . init
 cd cli && pnpm dev
 
 # Protocol/skill changes (no build needed for Markdown)
-vim skills/stackshift-core/protocols/new-protocol.md
+vim skills/stackshift/protocols/new-protocol.md
 
 # Version & publish
-echo "0.2.6" > skill.version && pnpm sync-version && pnpm publish
+echo "0.3.1" > skill.version && pnpm sync-version && pnpm publish
 ```
 
 ### Published Package Contents
@@ -407,3 +394,4 @@ echo "0.2.6" > skill.version && pnpm sync-version && pnpm publish
 ├── cli/dist/             # Built JavaScript
 ├── skills/               # All skill packages
 └── skill.version         # Version file
+```

@@ -5,12 +5,13 @@ import matter from 'gray-matter';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const skillsDir = resolve(__dirname, '../../skills');
-const protocolsRegistryPath = resolve(__dirname, '../../skills/stackshift-core/protocols/_registry.json');
-const seedsRegistryPath = resolve(__dirname, '../../skills/stackshift-core/seeds/_registry.json');
+const protocolsRegistryPath = resolve(__dirname, '../../skills/stackshift/protocols/_registry.json');
+const seedsRegistryPath = resolve(__dirname, '../../skills/stackshift/seeds/_registry.json');
+const stepMapPath = resolve(__dirname, '../../skills/stackshift/protocols/_step-map.json');
 const skillVersionPath = resolve(__dirname, '../../skill.version');
 
 export type SkillTier = 'required' | 'recommended' | 'optional' | 'core';
-export type SkillType = 'protocols-bundle' | 'seed' | 'core';
+export type SkillType = 'core';
 
 export interface SkillEntry {
   name: string;
@@ -21,6 +22,11 @@ export interface SkillEntry {
   folderPath: string;
 }
 
+export interface ProtocolAction {
+  title: string;
+  body: string;
+}
+
 export interface ProtocolEntry {
   id: string;
   tier: 'required' | 'recommended' | 'optional';
@@ -28,6 +34,18 @@ export interface ProtocolEntry {
   dir?: string;
   title: string;
   summary: string;
+  keywords?: string[];
+  /** Optional per-step content injected by the CLI into the workflow file's CLI:PROTOCOLS marker. */
+  action?: ProtocolAction;
+  /** Optional done-when checklist items appended into the workflow file's CLI:PROTOCOLS marker. */
+  doneWhen?: string[];
+  /**
+   * Reference files in `skills/stackshift/references/` that are conceptually
+   * tied to this protocol. When the protocol is NOT installed, the CLI prunes
+   * these files from the install destination. References without any
+   * `references` mapping anywhere remain universal and are always shipped.
+   */
+  references?: string[];
 }
 
 export interface SeedEntry {
@@ -44,19 +62,18 @@ export interface ProtocolRegistry {
   seeds: SeedEntry[];
 }
 
-function inferType(name: string, frontmatter: Record<string, unknown>): SkillType {
+export interface StepMap {
+  steps: Record<string, string[]>;
+  crossCutting: string[];
+}
+
+function inferType(_name: string, frontmatter: Record<string, unknown>): SkillType {
   if (frontmatter['type']) return frontmatter['type'] as SkillType;
-  if (name.startsWith('stackshift-protocols-')) return 'protocols-bundle';
-  if (name.startsWith('stackshift-seed-')) return 'seed';
   return 'core';
 }
 
-function inferTier(name: string, frontmatter: Record<string, unknown>): SkillTier {
+function inferTier(_name: string, frontmatter: Record<string, unknown>): SkillTier {
   if (frontmatter['tier']) return frontmatter['tier'] as SkillTier;
-  if (name === 'stackshift-protocols-required') return 'required';
-  if (name === 'stackshift-protocols-recommended') return 'recommended';
-  if (name === 'stackshift-protocols-full') return 'optional';
-  if (name.startsWith('stackshift-seed-')) return 'optional';
   return 'core';
 }
 
@@ -116,6 +133,19 @@ export function loadProtocolRegistry(): ProtocolRegistry {
     protocols: parsed.protocols ?? [],
     seeds: loadSeedRegistry(),
   };
+}
+
+export function loadStepMap(): StepMap {
+  try {
+    const raw = readFileSync(stepMapPath, 'utf8');
+    const parsed = JSON.parse(raw) as { steps?: Record<string, string[]>; crossCutting?: string[] };
+    return {
+      steps: parsed.steps ?? {},
+      crossCutting: parsed.crossCutting ?? [],
+    };
+  } catch {
+    return { steps: {}, crossCutting: [] };
+  }
 }
 
 export function loadSeedRegistry(): SeedEntry[] {

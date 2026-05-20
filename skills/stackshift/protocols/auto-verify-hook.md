@@ -68,7 +68,7 @@ When this protocol is in the materialized set, bootstrap Step 7b writes (or merg
         "hooks": [
           {
             "type": "command",
-            "command": "node ${UI_FORGE_SKILL_DIR}/scripts/verify.js \"$CLAUDE_FILE_PATH\""
+            "command": "node -e \"let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{const p=(JSON.parse(d||'{}').tool_input||{}).file_path;if(p)require('child_process').execFileSync('node',['${UI_FORGE_SKILL_DIR}/scripts/verify.js',p],{stdio:'inherit'})}catch(e){process.exit(0)}})\""
           }
         ]
       }
@@ -76,6 +76,8 @@ When this protocol is in the materialized set, bootstrap Step 7b writes (or merg
   }
 }
 ```
+
+The command is a node stdin reader: Claude Code PostToolUse hooks receive a JSON payload on stdin (`{ "tool_input": { "file_path": "..." }, ... }`); the wrapper extracts `file_path` and execs UI Forge's `verify.js` with it as argv. Pre-0.7.2 installs used `$CLAUDE_FILE_PATH` env-var form, which is not part of the documented hook contract — re-run `init` or `repair` to upgrade.
 
 The write is idempotent — re-running bootstrap detects the existing entry and does not duplicate it. If `.claude/settings.json` exists with unrelated content, the StackShift hook is appended without disturbing user entries.
 

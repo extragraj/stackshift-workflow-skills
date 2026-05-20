@@ -12,6 +12,7 @@ export interface InstallChoices {
   seed: SeedChoice;
   scope: ScopeChoice;
   platforms: Platform[];
+  /** When true, keep the previously-recorded tier and protocol selection instead of overwriting. */
   keepProtocol?: boolean;
 }
 
@@ -31,29 +32,25 @@ export async function runPrompts(
   allProtocols: ProtocolEntry[],
   _skills: SkillEntry[],
   seeds: SeedEntry[],
-  existingBundle?: { name: string },
+  existingTier?: ProtocolTier,
   existingSeed?: string,
 ): Promise<InstallChoices> {
   let protocolTier: ProtocolTier = 'recommended';
   let customProtocols: string[] = [];
   let keepProtocol = false;
 
-  if (existingBundle) {
-    const isCustom = existingBundle.name === 'stackshift-protocols-custom';
-    const tierName = existingBundle.name.replace('stackshift-protocols-', '');
-
+  if (existingTier) {
+    const tierLabel = existingTier === 'custom' ? 'custom selection' : existingTier;
     const shouldReplace = await confirm({
-      message: isCustom
-        ? 'A custom protocol selection is already installed.\nReplace with a pre-built tier?'
-        : `Protocol tier "${tierName}" is already installed.\nReplace with a different tier?`,
-      initialValue: isCustom,
+      message: `Protocol tier "${tierLabel}" is already recorded in .stackshift/installed.json.\nReplace with a different tier?`,
+      initialValue: false,
     });
 
     assertNotCancelled(shouldReplace);
 
     if (!shouldReplace) {
       keepProtocol = true;
-      protocolTier = isCustom ? 'custom' : (tierName as ProtocolTier);
+      protocolTier = existingTier;
       note(
         'Protocol tier kept as-is. Only seed and platform settings will be updated.',
         'Protocol Tier'

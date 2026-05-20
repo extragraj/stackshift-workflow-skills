@@ -1,5 +1,5 @@
 ---
-name: stackshift-core
+name: stackshift
 description: >
   Implements sections, variants, fields, and GROQ queries in StackShift
   (composable Sanity + Next.js Pages Router page-builder) projects. Triggers on:
@@ -19,70 +19,24 @@ Delegates all component rendering to `ui-forge`.
 
 ---
 
-## 0. Bootstrap check (first invocation only)
+## 0. Marker check
 
-Before doing any workflow step:
+Before doing any workflow step, check the project root for `.stackshift/installed.json`.
 
-### 1. Validate installation integrity
-
-Check for multi-tier installations by listing all folders in `.agents/skills/` and `.claude/skills/` (if they exist):
-
-```bash
-# Find all protocol bundle folders
-ls .agents/skills/ 2>/dev/null | grep "^stackshift-protocols-"
-ls .claude/skills/ 2>/dev/null | grep "^stackshift-protocols-"
-```
-
-Count the unique protocol bundle folder names found.
-
-**If multiple protocol bundles detected (count > 1):**
+- **Present** → proceed to the workflow.
+- **Missing** → halt and surface this message:
 
 ```
-⚠️ Installation Issue Detected
+⚠️ StackShift is not installed in this project.
 
-Multiple protocol tier bundles found:
-[list unique folder names, e.g., stackshift-protocols-required, stackshift-protocols-full]
+Run the installer:
+  npx @extragraj/stackshift-skills init
 
-Only ONE protocol tier should be active at a time.
-Each tier already includes all lower tiers, so having multiple is redundant and can cause confusion.
-
-To fix this issue:
-1. Run: npx @extragraj/stackshift-skills repair
-   OR
-2. Manually delete all but one protocol bundle folder from .agents/skills/ or .claude/skills/ (whichever contains your install)
-3. Run this skill again
-
-Which tier do you want to keep?
-(Check .stackshift/installed.json for your intended tier selection)
+The CLI performs the full bootstrap end-to-end: protocol materialization,
+design/standards/ seeding, .forgeignore, and UI Forge integration.
 ```
 
-**Stop workflow.** Wait for user to fix installation before proceeding.
-
-**If stackshift-core folder is missing from .agents/skills/ or .claude/skills/:**
-
-```
-⚠️ Missing Required Skill
-
-stackshift-core is required for StackShift sections.
-It provides the workflow, protocols, and references system.
-
-To fix:
-- Claude Code: npx @extragraj/stackshift-skills init --platform claude
-- Universal agents: npx @extragraj/stackshift-skills init --platform agents
-```
-
-**Stop workflow.** Wait for user to install.
-
-### 2. Check bootstrap marker
-
-If installation is valid, check the project root for `.stackshift/installed.json`.
-
-- **Missing** → run `bootstrap/install.md`. Stop. Return here after user confirms.
-- **Present with `"bootstrapRequired": true`** → the CLI installed skills but bootstrap has not yet run. Run `bootstrap/install.md`. Stop. Return here after user confirms.
-- **Present with `"materializationDone": true`** → the CLI materialized protocols. Run `bootstrap/install.md` to complete UI Forge integration steps (Step 6+) only. Stop. Return here after user confirms.
-- **Present without `bootstrapRequired` or `materializationDone`** → skip. Proceed to workflow.
-
-This materializes selected protocols, creates project infrastructure (_registry.json, _template/, references/), and enables custom protocol development.
+Do not author files. Do not run a workflow step. Wait for the user to install.
 
 ---
 
@@ -139,7 +93,10 @@ Use this table to find the right file when the current workflow step or an error
 | Reusable GROQ fragment constants | `references/groq-fragments.md` |
 | Version constraints (Sanity v3.17, Next 14, etc.) | `references/versions.md` |
 | Claude Design round-trip workflow | `references/claude-design-roundtrip.md` |
-| StackShift ↔ UI Forge handshake (markers, flag refusals, contract handoff) | `protocols/paired-mode-contract.md` |
+| `ui-forge` invocation: skill-root resolution, `--validate-input`, invocation forms, ref-selection rules | `references/ui-forge-invocation.md` |
+| Anti-slop fidelity checklist for HTML/TSX-referenced variants | `references/anti-slop-check.md` |
+| Step 4 failure-mode matrix and recovery rule | `references/failure-modes.md` |
+| StackShift ↔ UI Forge handshake (markers, flag refusals, contract handoff) | `.stackshift/protocols/paired-mode-contract.md` |
 | A protocol (required / recommended / optional convention) | See "Protocol Discovery" below |
 | Active seeding strategy | `seeds/<file>` from skill (see `seeds/_registry.json`) — see "Seed Discovery" below |
 | A custom reference lookup | `.stackshift/references/<name>.md` (project), else `references/<name>.md` (skill) |
@@ -175,23 +132,15 @@ Use `_template/` as starting point for directory-based protocols.
 
 ### Cross-Cutting Optional Protocols
 
-These protocols apply across multiple steps or may be invoked outside of any single workflow step. Check them once on every invocation using the two-stage process below.
-
-**Stage 1 — `installed.json` check:**
-1. Read `.stackshift/installed.json` → get the `protocols` array.
-2. For each protocol below: if its `id` is in the array, load and apply proactively.
-
-**Stage 2 — keyword discovery (fallback for protocols not in `installed.json`):**
-If the `id` is NOT in the array, check whether any keyword from the list appears in the user's current request (case-insensitive, whole-word or whole-phrase match). If matched: load, apply, and surface:
+These protocols apply across multiple steps or may be invoked outside of any single workflow step. When a keyword below appears in the user's current request (case-insensitive, whole-word or whole-phrase match), load the matching protocol and apply it. On match, surface:
 `ℹ️ Applying optional protocol "[title]" — matched keyword "[keyword]" in your request.`
-If no match: skip.
 
-| Protocol | ID | Keywords |
-|---|---|---|
-| Auto-Verify Hook | `auto-verify-hook` | "auto verify", "verify hook", "posttooluse", "verify on save" |
-| Modal & Sheet | `modal-sheet` | "modal", "dialog", "sheet", "overlay", "popup", "conditional link", "modal ref" |
+Only protocols installed in this project appear in the table below.
 
-**Note on `auto-verify-hook`:** Step 4 independently checks `installed.json` for this protocol to branch its postcondition path. This SKILL.md check handles setup queries only — do not apply postcondition logic here.
+<!-- CLI:CROSSCUT:BEGIN -->
+> The CLI injects this table at install. Do not edit by hand —
+> it will be overwritten by the next `init` or `repair`.
+<!-- CLI:CROSSCUT:END -->
 
 ### Seed Discovery
 

@@ -1,0 +1,13 @@
+{
+  "$schema": "../_registry.schema.json",
+  "description": "Registry of StackShift seeding strategies. Only ONE strategy should be active at a time — recorded in .stackshift/installed.json → seed field. The canonical content for each strategy is at skills/stackshift/seeds/<file>. No skill-folder stub ships (removed 0.5.1).",
+  "seeds": [
+    {
+      "id": "initialvalue-seeding",
+      "tier": "optional",
+      "file": "initialValue-seeding.md",
+      "title": "Initial-Value Seeding",
+      "summary": "Extracts content from HTML mockups or hardcoded components and writes realistic placeholder copy into initialValue/index.ts for Sanity Studio authors. Only one seeding strategy should be active at a time."
+    }
+  ]
+}

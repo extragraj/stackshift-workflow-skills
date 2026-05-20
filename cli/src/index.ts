@@ -1,12 +1,13 @@
 import { install } from './install.js';
 import { repair } from './repair.js';
+import { runValidateCli } from './validate.js';
 import { showHelp } from './flags.js';
 
-const [, , command] = process.argv;
+const [, , command, ...rest] = process.argv;
 
 async function main(): Promise<void> {
-  // Handle --help flag at root level
-  if (process.argv.includes('--help') || process.argv.includes('-h')) {
+  // Handle root-level --help only when no subcommand is supplied
+  if (command === undefined && (process.argv.includes('--help') || process.argv.includes('-h'))) {
     showHelp();
     process.exit(0);
   }
@@ -18,6 +19,9 @@ async function main(): Promise<void> {
       break;
     case 'repair':
       await repair();
+      break;
+    case 'validate':
+      await runValidateCli(rest);
       break;
     default:
       console.error(`Unknown command: ${command}`);

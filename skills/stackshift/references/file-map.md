@@ -34,5 +34,5 @@ Quick lookup: which file does what in a StackShift project.
 | `.forgeignore` | UI Forge scan exclusions — Sanity + Next.js defaults plus Claude Design cache/bundle written at bootstrap |
 | `.claude/settings.json` | Claude Code settings — receives the StackShift PostToolUse hook entry when `auto-verify-hook` protocol is active |
 | `.stackshift/installed.json` | StackShift install marker — protocols, `a11yRequired`, `uiForgeIntegration`, contract version |
-| `.agents/skills/stackshift-core/` | StackShift skill install location for universal agents (project scope) |
-| `~/.agents/skills/stackshift-core/` | StackShift skill install location for universal agents (global scope) |
+| `.agents/skills/stackshift/` | StackShift skill install location for universal agents (project scope) |
+| `~/.agents/skills/stackshift/` | StackShift skill install location for universal agents (global scope) |

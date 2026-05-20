@@ -1,0 +1,32 @@
+{
+  "$schema": "https://stackshift.dev/schemas/step-map.schema.json",
+  "description": "Per-step protocol map. The CLI intersects this map with .stackshift/installed.json protocols[] at install / repair time to inject pre-resolved 'Required / Recommended / Optional' lists into each workflow file's CLI:PROTOCOLS marker. Cross-cutting protocols (auto-validate-hook, modal-sheet) appear in 'crossCutting' instead — they are rendered into SKILL.md's CLI:CROSSCUT marker, not a single workflow step. auto-verify-hook is Step 4-specific (variant write postcondition) per its protocol doc, so it lives under steps.4 and contributes its action/done-when there.",
+  "steps": {
+    "1": [
+      "factory-function-pattern",
+      "sub-field-visibility",
+      "field-reuse-first",
+      "hide-if-variant",
+      "preview-conventions",
+      "array-layout"
+    ],
+    "2": [
+      "one-time-custom-schema-setup",
+      "section-directory-layout"
+    ],
+    "3": [],
+    "4": [
+      "variant-router",
+      "accessibility",
+      "paired-mode-contract",
+      "brand",
+      "claude-design-handoff",
+      "auto-verify-hook"
+    ],
+    "5": []
+  },
+  "crossCutting": [
+    "auto-validate-hook",
+    "modal-sheet"
+  ]
+}

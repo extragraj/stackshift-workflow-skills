@@ -1,5 +1,10 @@
 # Step 3 — TypeScript Types
 
+<!-- CLI:PROTOCOLS:BEGIN step=3 -->
+> The CLI injects this block at install. Do not edit by hand —
+> it will be overwritten by the next `init` or `repair`.
+<!-- CLI:PROTOCOLS:END -->
+
 > Load `references/types-catalog.md` for the full list of reusable interfaces.
 
 ---
@@ -45,8 +50,6 @@ export interface MySectionProps {
 
 This tag is parsed by UI Forge and included in the CONTRACT header of generated output, creating an auditable record of which contract version a variant was generated against. The current contract version is `1.0.0` — see `references/versions.md` for when and how to bump it.
 
-The `@contract-version` JSDoc tag pairs with a **`// @contract <path>` directive** that UI Forge writes on line 3 of FORGE NOTES in every generated variant. The directive points back at the file holding this interface; the JSDoc tag tracks version drift. When the `auto-verify-hook` protocol is installed, UI Forge's `verify.js` reads the directive to resolve the contract path automatically — no manual contract argument required. See `protocols/paired-mode-contract.md` for the full handshake.
-
 Rules:
 - **No `any`.** Use `unknown` + narrowing if the shape is dynamic.
 - All fields optional (`?`) — Sanity data can always be null/undefined.
@@ -74,5 +77,6 @@ export interface Variants {
 - [ ] Any new interface is added under the Variants Interface section
 - [ ] Every new field from Step 1 has a corresponding entry in `Variants`
 - [ ] No `any` types
+- [ ] **Validate:** `npx @extragraj/stackshift-skills validate --file types.ts` exits 0 (fires automatically via PostToolUse when `auto-validate-hook` is installed)
 
 → Proceed to `workflow/4-variants.md`.

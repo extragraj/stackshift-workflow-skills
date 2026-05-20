@@ -1,4 +1,5 @@
 import type { InstallChoices, ProtocolTier, ScopeChoice, Platform } from './prompts.js';
+import { loadSeedRegistry } from './registry.js';
 
 export interface Flags {
   tier?: 'required' | 'recommended' | 'full';
@@ -6,7 +7,6 @@ export interface Flags {
   platforms?: Platform[];
   seed?: string;
   noInteractive?: boolean;
-  noMaterialize?: boolean;
   help?: boolean;
 }
 
@@ -86,7 +86,11 @@ export function parseFlags(args: string[]): Flags {
         break;
 
       case '--no-materialize':
-        flags.noMaterialize = true;
+        // Removed in 0.3.0. The CLI is now the single source of truth for
+        // bootstrap; there is no deferred-to-agent install path.
+        console.error('Error: --no-materialize was removed in 0.3.0.');
+        console.error('The CLI now performs the full bootstrap on install — no deferred mode.');
+        process.exit(1);
         break;
 
       case '--no-interactive':
@@ -121,10 +125,24 @@ export function validateFlags(flags: Flags): InstallChoices | null {
   const scope: ScopeChoice = flags.scope || 'project';
   const platforms: Platform[] = flags.platforms || ['agents'];
 
+  // Validate --seed against the registry. 'none' is always valid; an unknown
+  // id was previously written straight into installed.json and only surfaced
+  // later by `repair`. Reject upfront in non-interactive mode.
+  const seed = flags.seed ?? 'none';
+  if (seed !== 'none') {
+    const knownSeeds = loadSeedRegistry().map((s) => s.id);
+    if (!knownSeeds.includes(seed)) {
+      console.error(`Invalid --seed value: ${seed}`);
+      const list = knownSeeds.length > 0 ? knownSeeds.join(', ') : '(none registered)';
+      console.error(`Valid values: none, ${list}`);
+      return null;
+    }
+  }
+
   return {
     protocolTier: tier as ProtocolTier,
     customProtocols: [],
-    seed: flags.seed ?? 'none',
+    seed,
     scope,
     platforms,
   };
@@ -143,7 +161,8 @@ USAGE:
 
 COMMANDS:
   init      Install StackShift skills (default)
-  repair    Fix multi-tier installations
+  repair    Reconcile materialized protocols and seed state
+  validate  Lint schemas + section index.tsx for protocol violations (exits 1 on required-tier hits)
 
 OPTIONS:
   --tier <required|recommended|full>    Protocol tier (default: recommended)
@@ -153,8 +172,6 @@ OPTIONS:
                                         Use comma-separated for multiple: claude,agents
   --seed <id|none>                      Seeding strategy id, or 'none' (default: none)
                                         Example: --seed initialvalue-seeding
-  --no-materialize                      Skip CLI materialization; defer all steps to AI agent.
-                                        Useful for fully automated flows.
   --no-interactive                      Skip prompts, use flags + defaults
   --help, -h                            Show this help
 
@@ -178,14 +195,20 @@ EXAMPLES:
   # Install to multiple platforms
   npx @extragraj/stackshift-skills init --platform claude,agents --no-interactive
 
-  # Fix multi-tier installation
+  # Reconcile materialized state
   npx @extragraj/stackshift-skills repair
 
+  # Lint a single file (for PreToolUse hooks)
+  npx @extragraj/stackshift-skills validate --file schemas/custom/.../sections/hero/schema/index.ts
+
+  # Lint the whole project, JSON output (for CI)
+  npx @extragraj/stackshift-skills validate --json
+
 NOTES:
-  - stackshift-core is always installed (required for workflow)
+  - stackshift is always installed (required for workflow)
   - Custom tier selection requires interactive mode
   - Protocol tiers are cumulative (full includes recommended + required)
-  - Without --no-materialize, the CLI materializes protocols to .stackshift/ non-interactively;
-    UI Forge integration steps still require the AI agent
+  - The CLI performs the full bootstrap end-to-end: protocol materialization,
+    design/standards/ seeding, .forgeignore, and UI Forge integration.
   `);
 }

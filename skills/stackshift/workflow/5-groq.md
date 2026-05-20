@@ -1,5 +1,10 @@
 # Step 5 — GROQ Query
 
+<!-- CLI:PROTOCOLS:BEGIN step=5 -->
+> The CLI injects this block at install. Do not edit by hand —
+> it will be overwritten by the next `init` or `repair`.
+<!-- CLI:PROTOCOLS:END -->
+
 > Load `references/groq-fragments.md` for the full list of reusable fragment constants.
 
 All projections live in `pages/api/query.ts` inside the `variants` template literal. **Never write inline GROQ outside this file.**
