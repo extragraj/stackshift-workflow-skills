@@ -83,7 +83,20 @@ Pick Option B when variant shapes diverge significantly.
 
 ---
 
-## `images/` — variant preview thumbnails
+## `images/` — variant preview thumbnails (static branch of variant-preview)
+
+The variant picker in Sanity Studio renders previews from one of two sources. Pick **one** based on the project's runtime env:
+
+| `NEXT_PUBLIC_RENDER_DYNAMIC_COMPONENTS` | Preferred path | Action |
+|---|---|---|
+| unset or `"false"` | Static JPG (this protocol) | Create `images/<variant>.jpg` per the rules below. |
+| `"true"` | Live React render | Register the variant in `components/data/dynamic.ts` per `dynamic-variants-registry`. The static JPG becomes an optional fallback for env-off environments. |
+
+If you commit to the dynamic path, skipping the screenshot here is fine — the live render replaces it. Doing both is only useful when the same codebase runs under both env settings (e.g. dev with previews on, CI without).
+
+The `cookies` section is excluded from dynamic rendering regardless of the env flag — it always relies on the static JPG.
+
+### Naming
 
 One image per entry in `variantsList`, named to match the variant's `value` exactly.
 
@@ -94,19 +107,16 @@ images/
 └── variant_hero_split.jpg
 ```
 
-### Naming
-
 | `variantsList` entry | Image filename |
 |---|---|
 | `{ value: "variant_a" }` | `variant_a.jpg` |
 | `{ value: "variant_hero_split" }` | `variant_hero_split.jpg` |
 
-Extensions: `.jpg`, `.jpeg`, `.png`, `.webp`.
+Extensions: `.jpg`, `.jpeg`, `.png`, `.webp`. JPG is preferred for file size.
 
 ### Image guidelines
 
-- **Aspect ratio:** match what Studio expects (commonly 16:9 or 4:3).
-- **Resolution:** ~800–1200px wide is sufficient for the Studio preview card.
+- **Aspect ratio + resolution:** 800×600 (4:3) is the project default. Other ratios work, but stay close in pixel count so the picker grid stays consistent.
 - **Content:** show the variant's actual rendered layout — do not use generic stock images.
 - **File size:** keep under ~200 KB per image; these are bundled into the Studio build.
 
@@ -114,7 +124,7 @@ Extensions: `.jpg`, `.jpeg`, `.png`, `.webp`.
 
 1. Build the variant component (Step 4d).
 2. Screenshot the rendered variant in-browser at the expected viewport.
-3. Crop to the section's visible bounds.
+3. Crop to 800×600 (or as close as the layout allows).
 4. Save as `images/[variant_value].jpg`.
 5. Verify it appears in Studio's variant picker.
 

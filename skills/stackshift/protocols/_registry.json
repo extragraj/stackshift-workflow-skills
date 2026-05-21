@@ -41,15 +41,63 @@
       "tier": "required",
       "file": "variant-router.md",
       "title": "Variant Router (index.tsx)",
-      "summary": "Rules for the section index.tsx. Missing props interface export breaks the variant file's TypeScript compile.",
+      "summary": "Rules for the section index.tsx. Missing props interface export breaks the variant file's TypeScript compile. Every entry in `Variants` must use `dynamic()` — built-ins from the package's `dist/` path, customs from local files.",
       "action": {
         "title": "Honor the variant-router contract in `index.tsx`",
-        "body": "- Function signature is `{ data }: SectionsProps` — not a custom props type.\n- Every field uses `?? undefined`.\n- Render `null` when `data?.variant` is absent. **Never** hardcode a fallback.\n- The section props interface must be exported from `index.tsx` so the variant file can import it from `\".\"`.\n\nSee `.stackshift/protocols/variant-router.md` for the full pattern."
+        "body": "- Function signature is `{ data }: SectionsProps` — not a custom props type.\n- Every field uses `?? undefined`.\n- Render `null` when `data?.variant` is absent. **Never** hardcode a fallback.\n- The section props interface must be exported from `index.tsx` so the variant file can import it from `\".\"`.\n- Every entry in `Variants` uses `dynamic(() => import(...))`. Built-ins import from `@stackshift-ui/<pkg>/dist/<pkg>_<letter>`; customs from `./variant_<x>`. No star imports.\n- When `list.tsx` is switched to a local wrapper, use `.then((m) => m.<Name>)` to match the named export and **drop `{ ssr: false }`**.\n\nSee `.stackshift/protocols/variant-router.md` for the full pattern."
       },
       "doneWhen": [
         "Props interface defined and exported from `index.tsx`",
         "Props extracted with `?? undefined` for every field",
-        "No hardcoded fallback variant"
+        "No hardcoded fallback variant",
+        "Every `Variants` entry uses `dynamic()` (built-ins via dist path, customs via `./variant_<x>`)"
+      ]
+    },
+    {
+      "id": "variant-naming-convention",
+      "tier": "required",
+      "file": "variant-naming-convention.md",
+      "title": "Variant Naming Convention",
+      "summary": "Variant keys follow single-letter sequence (`variant_a` … `variant_z`) before two-letter combinations (`variant_aa`, `variant_ab`, …). The same key must appear in `variantsList[].value`, the `Variants` map, and the variant filename.",
+      "action": {
+        "title": "Pick the next variant key correctly — stop and check before typing",
+        "body": "1. Inspect base-package variants: `grep -E \"variant_[a-z]\" node_modules/@stackshift-ui/<package>/src/<package>.tsx`.\n2. Inspect local custom variants: `ls components/sections/<section>/`.\n3. Merge both lists. The next key is the **lowest unused single letter** before any two-letter combination.\n4. Two-letter suffixes (`aa`, `ab`, …) begin only after `variant_z` is exhausted.\n5. Use the **same string** in `variantsList[].value`, the `Variants` map key, and the variant filename.\n\nSee `.stackshift/protocols/variant-naming-convention.md`."
+      },
+      "doneWhen": [
+        "Next variant key is the lowest unused single letter (no two-letter keys while single letters before `z` remain)",
+        "Identical key string in `variantsList[].value`, `Variants` map, and `variant_<x>.tsx` filename"
+      ]
+    },
+    {
+      "id": "variant-reuse-first",
+      "tier": "recommended",
+      "file": "variant-reuse-first.md",
+      "title": "Variant Reuse First",
+      "summary": "Before scaffolding a new variant, check base-package and local variants. Reuse as-is when fields and layout match; wrap when fields match but layout differs; create new only when fields or structure are genuinely different.",
+      "action": {
+        "title": "Run the variant reuse decision tree before Step 4a",
+        "body": "Three-step decision:\n1. Same fields + same layout → use existing variant in Studio. **No new file.** No `variantsList` change.\n2. Same fields + different layout → wrap the existing variant via `dynamic(() => import(\"@stackshift-ui/<pkg>/dist/<pkg>_<letter>\"))` and override layout. Keep the existing `value`.\n3. Different fields or structurally different → only now scaffold a new variant.\n\nSee `.stackshift/protocols/variant-reuse-first.md`."
+      },
+      "doneWhen": [
+        "Base-package and local variants inspected before scaffolding",
+        "Reuse decision recorded (use as-is / wrap / scaffold new) with rationale"
+      ]
+    },
+    {
+      "id": "dynamic-variants-registry",
+      "tier": "recommended",
+      "file": "dynamic-variants-registry.md",
+      "title": "Dynamic Variants Registry",
+      "summary": "Registers custom variants in `components/data/dynamic.ts` so the Studio variant picker live-renders the variant component (instead of the static JPG) when `NEXT_PUBLIC_RENDER_DYNAMIC_COMPONENTS=true`. No-op when the env flag is off.",
+      "keywords": ["dynamic variants", "live preview", "variant picker", "dynamic.ts", "render dynamic components"],
+      "action": {
+        "title": "Register custom variants in `components/data/dynamic.ts` when live previews are enabled",
+        "body": "Check `NEXT_PUBLIC_RENDER_DYNAMIC_COMPONENTS` first. If unset / `\"false\"`, this protocol is a no-op — rely on the static `images/` path from `section-directory-layout`.\n\nWhen the flag is `\"true\"`:\n- Part A: add a `customXxxVariants[]` array and spread it into `variantsMap[section]`.\n- Part B: if the section has a project-local `initialValue/index.ts`, import it and assign it in `initialValuesMap`, replacing the base-package default (remove the now-unused base import).\n\nThe `cookies` section is always excluded.\n\nSee `.stackshift/protocols/dynamic-variants-registry.md`."
+      },
+      "doneWhen": [
+        "Env-flag decision evaluated (`NEXT_PUBLIC_RENDER_DYNAMIC_COMPONENTS`)",
+        "When flag is on: every custom variant has a `customXxxVariants[]` entry spread into `variantsMap`",
+        "When flag is on and `initialValue/` is custom: `initialValuesMap` references the project-local value and the base-package import is removed"
       ]
     },
     {
@@ -127,14 +175,14 @@
       "tier": "recommended",
       "file": "section-directory-layout.md",
       "title": "Section Directory Layout",
-      "summary": "initialValue/ and images/ directories for placeholder content and variant thumbnails. No errors if omitted — just poor author onboarding.",
+      "summary": "initialValue/ placeholder content for every variant and images/ thumbnails as the static branch of variant-preview. images/ is the default; when `NEXT_PUBLIC_RENDER_DYNAMIC_COMPONENTS=true`, prefer `dynamic-variants-registry` instead.",
       "action": {
-        "title": "Populate `initialValue/` and `images/`",
-        "body": "- Populate `initialValue/` with placeholder content for every variant. Empty forms are a poor author experience.\n- Populate `images/` with one preview thumbnail per variant, named to match the variant's `value`.\n\nSee `.stackshift/protocols/section-directory-layout.md`."
+        "title": "Populate `initialValue/` and (when applicable) `images/`",
+        "body": "- Populate `initialValue/` with placeholder content for every variant. Empty forms are a poor author experience.\n- For the variant picker thumbnail, pick **one** path based on `NEXT_PUBLIC_RENDER_DYNAMIC_COMPONENTS`:\n  - Env unset or `\"false\"` → populate `images/` with one 800×600 JPG per variant, named to match the variant's `value`.\n  - Env `\"true\"` → register in `components/data/dynamic.ts` per `dynamic-variants-registry`; the static JPG becomes optional.\n\nSee `.stackshift/protocols/section-directory-layout.md`."
       },
       "doneWhen": [
         "`initialValue/` populated for every variant",
-        "`images/` has one thumbnail per variant, named to match the variant `value`"
+        "Variant picker preview path chosen based on `NEXT_PUBLIC_RENDER_DYNAMIC_COMPONENTS` (static JPG via `images/` OR dynamic registration via `dynamic-variants-registry`)"
       ]
     },
     {
@@ -215,7 +263,7 @@
       "tier": "optional",
       "file": "auto-validate-hook.md",
       "title": "Auto-Validate Hook (PostToolUse)",
-      "summary": "Installs a Claude Code PostToolUse hook that runs `stackshift-skills validate` on every Write/Edit. Statically enforces factory-function-pattern, sub-field-visibility, variant-router, and preview-conventions invariants on schema and section-router writes.",
+      "summary": "Installs a Claude Code PostToolUse hook that runs `stackshift-skills validate` on every Write/Edit. Statically enforces factory-function-pattern, sub-field-visibility, variant-router, variant-naming-convention, and preview-conventions invariants on schema and section-router writes.",
       "keywords": ["auto validate", "validate hook", "protocol enforcement", "lint on save"]
     },
     {

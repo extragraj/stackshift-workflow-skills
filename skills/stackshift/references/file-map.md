@@ -19,6 +19,7 @@ Quick lookup: which file does what in a StackShift project.
 | `types.ts` | All TypeScript interfaces — check and add here |
 | `components/sections/[name]/index.tsx` | Variant router + local props interface + props extraction |
 | `components/sections/[name]/variant_[x].tsx` | Custom variant implementation |
+| `components/data/dynamic.ts` | Live-preview registry for the Studio variant picker — `variantsMap` + `initialValuesMap`. Gated by `NEXT_PUBLIC_RENDER_DYNAMIC_COMPONENTS` (dynamic-variants-registry protocol) |
 | `components/sections/modal/index.tsx` | Modal variant router — `ModalProps` interface and `VariantRegistry` map (modal-sheet protocol) |
 | `components/sections/modal/variant_[x].tsx` | Modal variant — owns its `@stackshift-ui/sheet` or `@stackshift-ui/dialog` wrapper; uses `useModal()` for state |
 | `components/ui/smart-link.tsx` | Link component that intercepts `linkType: "linkModal"` and calls `openModalByRef()` instead of navigating |

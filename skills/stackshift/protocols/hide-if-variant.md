@@ -38,6 +38,23 @@ export const heroSchema = [
 
 ---
 
+## Inverse pattern — field shown ONLY on one variant
+
+There is no `showIfVariantIn()`. To restrict a field to a single variant, hide it on **every other** variant by listing them exhaustively in `hideIfVariantIn([...])`.
+
+```typescript
+// customField appears ONLY on variant_z — hide on every other variant.
+customField({
+  hidden: hideIfVariantIn([
+    "variant_a", "variant_b", "variant_c", "variant_d", "variant_e",
+  ]),
+}),
+```
+
+When new variants are later added, the exhaustive list must be extended to keep the field hidden on them too. If you forget, the field starts showing on the new variant silently.
+
+---
+
 ## Anti-pattern
 
 **Don't** rely on the variant's component ignoring the field at render time. Sanity Studio authors must not see irrelevant fields. Always declare exclusions at the schema level.

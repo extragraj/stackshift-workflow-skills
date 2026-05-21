@@ -41,12 +41,15 @@ const PROTOCOL_TIERS: Record<string, Tier> = {
   'factory-function-pattern': 'required',
   'sub-field-visibility': 'required',
   'variant-router': 'required',
+  'variant-naming-convention': 'required',
   'one-time-custom-schema-setup': 'required',
   'field-reuse-first': 'recommended',
   'hide-if-variant': 'recommended',
   'preview-conventions': 'recommended',
   'array-layout': 'recommended',
   'section-directory-layout': 'recommended',
+  'variant-reuse-first': 'recommended',
+  'dynamic-variants-registry': 'recommended',
 };
 
 function readInstalled(cwd: string): InstalledJson | null {
@@ -213,6 +216,54 @@ function checkVariantRouter(file: string, source: string, findings: Finding[]): 
 }
 
 /**
+ * variant-naming-convention (required, Step 4):
+ * Two-letter variant keys (`variant_aa`, `variant_ab`, ...) are reserved for
+ * after `variant_z` is exhausted. Flag any two-letter key in the `Variants`
+ * map of a section's `index.tsx` when `variant_z` is not also present —
+ * the agent skipped the single-letter sequence.
+ *
+ * Operates per-file. Scans every `variant_<key>:` declaration (the `Variants`
+ * map key positions) and ignores other occurrences elsewhere in the file.
+ */
+function checkVariantNamingConvention(file: string, source: string, findings: Finding[]): void {
+  const normalized = file.replace(/\\/g, '/');
+  if (!/\/components\/sections\/[^/]+\/index\.tsx?$/.test(normalized)) return;
+
+  const re = /\bvariant_([a-z]+)\s*:/g;
+  const positions = new Map<string, number>();
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(source))) {
+    if (!positions.has(m[1])) positions.set(m[1], m.index);
+  }
+
+  const keys = new Set(positions.keys());
+  const twoLetter = Array.from(keys).filter((k) => k.length === 2);
+  if (twoLetter.length === 0) return;
+  // Post-`variant_z` two-letter keys are valid.
+  if (keys.has('z')) return;
+
+  const missingSingles: string[] = [];
+  for (let i = 0; i < 26; i++) {
+    const letter = String.fromCharCode(97 + i);
+    if (!keys.has(letter)) {
+      missingSingles.push(letter);
+      if (missingSingles.length >= 3) break;
+    }
+  }
+  const hint = missingSingles[0] ?? 'a';
+
+  for (const k of twoLetter) {
+    findings.push({
+      file,
+      line: lineOf(source, positions.get(k)!),
+      protocolId: 'variant-naming-convention',
+      tier: 'required',
+      message: `\`variant_${k}\` uses a two-letter key while \`variant_z\` is absent — two-letter suffixes only begin after \`variant_z\` is exhausted. Next single-letter key available: \`variant_${hint}\`.`,
+    });
+  }
+}
+
+/**
  * preview-conventions (recommended, Step 1):
  * Sections often define array-of-objects fields without a `preview.prepare()`.
  * Heuristic: a `type: 'array'` or `type: 'object'` block lacking a `preview:` key
@@ -251,6 +302,7 @@ function runChecks(file: string, active: Set<string>, marker: InstalledJson | nu
   if (active.has('factory-function-pattern')) checkFactoryFunctionPattern(file, source, findings);
   if (active.has('sub-field-visibility')) checkSubFieldVisibility(file, source, findings);
   if (active.has('variant-router')) checkVariantRouter(file, source, findings);
+  if (active.has('variant-naming-convention')) checkVariantNamingConvention(file, source, findings);
   if (active.has('preview-conventions')) checkPreviewConventions(file, source, findings);
   // upgrade tier from marker, where present
   for (const f of findings) f.tier = tierFor(f.protocolId, marker);

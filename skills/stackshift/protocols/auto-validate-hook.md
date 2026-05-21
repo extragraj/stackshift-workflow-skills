@@ -18,6 +18,7 @@ The validator runs the per-protocol checks documented in `cli/src/validate.ts`. 
 | `factory-function-pattern` | `schemas/custom/**/common/fields.ts` | No `defineField(` / `defineType(` calls inside factories — factories return plain object literals. |
 | `sub-field-visibility` | `schemas/custom/**/sections/**/*.ts` | No duplicate `name: 'foo'` entries within a single file. |
 | `variant-router` | `components/sections/**/index.tsx` | Exported `<Name>Props` interface, `?? undefined` (not `?? null`), `if (!Variant) return null;` fallback, `{ data }: SectionsProps` signature. |
+| `variant-naming-convention` | `components/sections/**/index.tsx` | No two-letter `variant_xy` keys while `variant_z` is absent — two-letter suffixes only begin after `variant_z` is exhausted. |
 | `preview-conventions` | `schemas/custom/**/*.ts` | Every `type: 'array'` / `type: 'object'` block has a `preview` key. |
 
 The check list grows as new protocols add static rules.

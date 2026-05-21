@@ -1,6 +1,6 @@
 # StackShift Workflow Skill
 
-> **Version** 0.7.2
+> **Version** 0.8.0
 
 A structured agentic skill for building sections and variants inside StackShift, a composable Sanity v3 and Next.js page-builder. Enforces a strict 5-step implementation workflow, governs quality through a tiered protocol system, supports seed strategies, and delegates component rendering to the `ui-forge` companion skill.
 
@@ -77,6 +77,7 @@ Coverage:
 | `factory-function-pattern` | No `defineField(` / `defineType(` calls inside factory files. |
 | `sub-field-visibility` | No duplicate `name: 'foo'` entries within a single section schema. |
 | `variant-router` | Exported `<Name>Props`, `?? undefined` extraction, `if (!Variant) return null;`, `{ data }: SectionsProps` signature. |
+| `variant-naming-convention` | No two-letter `variant_xy` keys in the `Variants` map while `variant_z` is absent. |
 | `preview-conventions` | Every `type: 'array'` / `type: 'object'` block has a `preview` key. |
 
 The `auto-validate-hook` optional protocol wires this command as a Claude Code `PostToolUse` hook so violations are surfaced inline on every Write/Edit.
@@ -172,19 +173,22 @@ All registered protocols, organized by tier:
 |----------|------|-----------|-------------|
 | Factory Function Pattern | required | Step 1 | Plain-object shape for field factories. Incorrect shape breaks `hideInVariants` at runtime. |
 | Sub-Field Visibility | required | Step 1 | Hide sub-fields on the sub-field itself; duplicate field names at section level crash schema load. |
-| Variant Router | required | Step 4 | `index.tsx` rules: exported props interface, `null` fallback, `?? undefined` extraction. |
+| Variant Router | required | Step 4 | `index.tsx` rules: exported props interface, `null` fallback, `?? undefined` extraction, every `Variants` entry uses `dynamic()` (built-ins via dist path). |
+| Variant Naming Convention | required | Steps 2, 4 | Single-letter sequence (`variant_a` … `variant_z`) before two-letter (`variant_aa`, `variant_ab`, …). Same key across `variantsList[].value`, `Variants` map, and filename. |
 | One-Time Custom Schema Setup | required | Step 2 | Project-level wiring to enable custom sections in Studio. Execute once per project. |
 | Field Reuse First | recommended | Step 1 | Verify existing factories before creating new ones. |
-| Hide If Variant | recommended | Step 1 | Exclude variants from unused fields via `hideIfVariantIn()`. |
+| Hide If Variant | recommended | Step 1 | Exclude variants from unused fields via `hideIfVariantIn()`. Includes inverse pattern for variant-only fields. |
 | Preview Conventions | recommended | Step 1 | `preview` block with `prepare()` on array-of-objects and object fields. |
 | Array Layout | recommended | Step 1 | `grid` for image arrays, `tags` for string arrays, `collapsible` for nav arrays. |
-| Section Directory Layout | recommended | Step 2 | `initialValue/` with placeholder copy and `images/` with variant thumbnails. |
+| Section Directory Layout | recommended | Step 2 | `initialValue/` placeholder content + `images/` thumbnails as the static branch of variant-preview. |
+| Variant Reuse First | recommended | Step 4 | Three-step decision tree before scaffolding: reuse as-is → wrap from dist → create new. |
+| Dynamic Variants Registry | recommended | Step 2 | Registers custom variants in `components/data/dynamic.ts` for live picker previews when `NEXT_PUBLIC_RENDER_DYNAMIC_COMPONENTS=true`. No-op when the env flag is off. |
 | Accessibility | recommended | Step 4 | WCAG 2.1 AA enforcement via UI Forge's `SIGNAL_A11Y`. Writes `a11yRequired: true` to the marker. |
 | Paired-Mode Contract | recommended | Cross-cutting | Canonical reference for the StackShift ↔ UI Forge handshake. |
 | Brand | optional | Step 4 | Registers a project brand document so UI Forge applies voice, palette, typography, and imagery rules. |
 | Claude Design Handoff | optional | Step 4 | Activates UI Forge's `+CLAUDE_DESIGN` modifier and `--handoff <url>` flag. |
 | Auto-Verify Hook | optional | Step 4 | Wires UI Forge's `verify.js` as a Claude Code `PostToolUse` hook. Claude Code only. |
-| Auto-Validate Hook | optional | Steps 1, 2, 3, 4 | Wires `stackshift-skills validate` as a Claude Code `PostToolUse` hook. Statically enforces factory-function, sub-field-visibility, variant-router, and preview-conventions invariants on every Write/Edit. Claude Code only. |
+| Auto-Validate Hook | optional | Steps 1, 2, 3, 4 | Wires `stackshift-skills validate` as a Claude Code `PostToolUse` hook. Statically enforces factory-function, sub-field-visibility, variant-router, variant-naming-convention, and preview-conventions invariants on every Write/Edit. Claude Code only. |
 | Modal & Sheet | optional | Steps 2, 4, 5 | Standalone modal documents linked via `conditionalLink`, opened as a sheet or dialog overlay. |
 
 ---
@@ -237,12 +241,15 @@ your-project/
 │   │   ├── factory-function-pattern.md
 │   │   ├── sub-field-visibility.md
 │   │   ├── variant-router.md
+│   │   ├── variant-naming-convention.md
 │   │   ├── one-time-custom-schema-setup.md
 │   │   ├── field-reuse-first.md
 │   │   ├── hide-if-variant.md
 │   │   ├── preview-conventions.md
 │   │   ├── array-layout.md
 │   │   ├── section-directory-layout.md
+│   │   ├── variant-reuse-first.md
+│   │   ├── dynamic-variants-registry.md
 │   │   ├── accessibility.md
 │   │   └── paired-mode-contract.md
 │   └── references/             # Custom reference lookups (empty initially)

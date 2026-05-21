@@ -61,22 +61,21 @@ export { MySection_X };
 // components/sections/[section-name]/index.tsx
 import dynamic from "next/dynamic";
 import { SectionsProps } from "@/types";
-import { MySectionComponent as BaseMySectionComponent } from "@stackshift-ui/my-section";
-
-const BaseVariants = {
-  variant_a: BaseMySectionComponent,
-  variant_b: BaseMySectionComponent,
-  variant_c: BaseMySectionComponent,
-};
 
 const Variants = {
-  ...BaseVariants,
+  // Built-in variants — dist path with dynamic()
+  variant_a: dynamic(() => import("@stackshift-ui/my-section/dist/my-section_a")),
+  variant_b: dynamic(() => import("@stackshift-ui/my-section/dist/my-section_b")),
+  variant_c: dynamic(() => import("@stackshift-ui/my-section/dist/my-section_c")),
+  // Custom variants — local files, also dynamic()
   variant_d: dynamic(() => import("./variant_d")),
   variant_e: dynamic(() => import("./variant_e")),
 };
 ```
 
-If this is a **new section type** (not just a new variant), also register it in `components/list.tsx`:
+**Every entry in `Variants` uses `dynamic()`** — built-ins import from `@stackshift-ui/<pkg>/dist/<pkg>_<letter>`, customs from `./variant_<x>`. No star imports, no static named imports. See `.stackshift/protocols/variant-router.md` for the full rule set.
+
+If this is a **new section type** (not just a new variant) — or you are converting an existing section that previously imported directly from `@stackshift-ui` — register the local wrapper in `components/list.tsx`. Use `.then((m) => m.<Name>)` to match the named export, and **drop `{ ssr: false }`** if it was carried over from the previous direct-import line:
 
 ```typescript
 mySection: dynamic(
